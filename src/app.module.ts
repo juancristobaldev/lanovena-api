@@ -13,6 +13,8 @@ import { GrowthModule } from './modules/growth/growth.module';
 import { MethodologyModule } from './modules/methodology/methodology.module';
 import { OperationsModule } from './modules/operations/operations.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { FlowModule } from './modules/flow/flow.module';
+import { TasksService } from './modules/tasks/tasks.service';
 
 @Module({
   imports: [
@@ -28,8 +30,9 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     MethodologyModule,
     OperationsModule,
     NotificationsModule,
+    FlowModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, TasksService],
 })
 export class AppModule {}

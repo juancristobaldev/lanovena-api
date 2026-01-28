@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ReferralsService } from './referrals/referrals.service';
-import { SponsorshipService } from './sponsorship/sponsorship.service';
 import { GrowthResolver } from './growth.resolver';
+import { SponsorshipsService } from './sponsorship/sponsorship.service';
 
 @Module({
-  providers: [ReferralsService, SponsorshipService, GrowthResolver]
+  providers: [ReferralsService, SponsorshipsService, GrowthResolver],
 })
 export class GrowthModule {}

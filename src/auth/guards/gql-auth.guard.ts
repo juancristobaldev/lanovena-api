@@ -6,42 +6,53 @@ import {
 } from '@nestjs/common';
 import { GqlExecutionContext } from '@nestjs/graphql';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class GqlAuthGuard implements CanActivate {
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(
+    private jwtService: JwtService,
+    private configService: ConfigService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const ctx = GqlExecutionContext.create(context);
-    const req = ctx.getContext().req;
+    const request = ctx.getContext().req;
 
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      throw new UnauthorizedException('Token no proporcionado');
-    }
+    // 1. Extraer el token del header "Authorization: Bearer <token>"
+    const token = this.extractTokenFromHeader(request);
 
-    const [type, token] = authHeader.split(' ');
-
-    if (type !== 'Bearer' || !token) {
-      throw new UnauthorizedException('Formato de token inválido');
+    if (!token) {
+      throw new UnauthorizedException(
+        'No se proporcionó token de autenticación',
+      );
     }
 
     try {
-      const payload = await this.jwtService.verifyAsync(token);
+      // 2. Verificar la firma y expiración
+      const payload = await this.jwtService.verifyAsync(token, {
+        secret:
+          this.configService.get<string>('JWT_SECRET') || 'SUPER_SECRET_KEY',
+      });
 
-      // payload recomendado:
-      // { sub, email, role, schoolId }
-
-      req.user = {
+      // 3. Inyectar el usuario en el request para que @CurrentUser lo lea
+      // Aquí reconstruimos el objeto usuario ligero
+      request['user'] = {
         id: payload.sub,
         email: payload.email,
         role: payload.role,
         schoolId: payload.schoolId,
+        isImpersonated: payload.isImpersonated || false,
       };
-
-      return true;
     } catch (error) {
       throw new UnauthorizedException('Token inválido o expirado');
     }
+
+    return true;
+  }
+
+  private extractTokenFromHeader(request: any): string | undefined {
+    const [type, token] = request.headers.authorization?.split(' ') ?? [];
+    return type === 'Bearer' ? token : undefined;
   }
 }
