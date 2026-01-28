@@ -6,7 +6,6 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-
 }
 
 // 2. ENUMS (DEFINICIONES ESTÁTICAS DEL NEGOCIO)
@@ -48,6 +47,25 @@ enum PaymentStatus {
   WAIVED
 }
 
+// --- NUEVOS ENUMS ---
+enum ReferralStatus {
+  PENDING
+  CONVERTED
+  REJECTED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
 // 3. MODELOS PRINCIPALES
 
 model User {
@@ -64,80 +82,96 @@ model User {
   schoolId  String?
   school    School?  @relation(fields: [schoolId], references: [id])
 
-  managedPlayers Player[] @relation("GuardianPlayers")
+  managedPlayers Player[]       @relation("GuardianPlayers")
   coachProfile   Coach?
-
   notifications  Notification[]
+
+  // --- NUEVAS RELACIONES ---
+  assignedTasks Task[] @relation("UserTasks") // Tareas asignadas al usuario (Staff)
 }
 
 model School {
-  id          String      @id @default(uuid())
-  name        String
-  slug        String      @unique
-  logoUrl     String?
-  mode        SchoolMode  @default(COMMERCIAL)
+  id                 String     @id @default(uuid())
+  name               String
+  slug               String     @unique
+  logoUrl            String?
+  mode               SchoolMode @default(COMMERCIAL)
+  bankDetails        String?    @db.Text
+  planType           PlanType   @default(SEMILLERO)
+  subscriptionStatus String
+  nextBillingDate    DateTime?
+  
+  users     User[]
+  categories Category[]
+  players    Player[]
+  products   Product[]
+  exercises  Exercise[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 
-  bankDetails String?     @db.Text
-
-  planType            PlanType @default(SEMILLERO)
-  subscriptionStatus  String
-  nextBillingDate     DateTime?
-
-  users       User[]
-  categories  Category[]
-  players     Player[]
-  products    Product[]
-  exercises   Exercise[]
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  // --- NUEVAS RELACIONES ---
+  // Growth Hacking: Sistema de Referidos
+  referralsSent     Referral[]    @relation("SchoolReferrer")
+  referralsReceived Referral[]    @relation("SchoolReferee")
+  
+  // Monetización: Espacios de Patrocinio
+  sponsorships      Sponsorship[]
+  
+  // Modo Institucional: Beneficios
+  benefits          Benefit[]
+  
+  // Gestión Interna
+  tasks             Task[]
 }
 
 model Category {
-  id        String       @id @default(uuid())
-  name      String
-  type      CategoryType @default(FORMATIVA)
-  schoolId  String
-  school    School       @relation(fields: [schoolId], references: [id])
+  id       String       @id @default(uuid())
+  name     String
+  type     CategoryType @default(FORMATIVA)
+  schoolId String
+  school   School       @relation(fields: [schoolId], references: [id])
 
-  players   Player[]
-  coaches   Coach[]      @relation("CoachCategories")
-  sessions  TrainingSession[]
+  players  Player[]
+  coaches  Coach[]           @relation("CoachCategories")
+  sessions TrainingSession[]
 }
 
 model Player {
-  id             String   @id @default(uuid())
-  firstName      String
-  lastName       String
-  birthDate      DateTime
-  photoUrl       String?
-  medicalInfo    String?  @db.Text
-  active         Boolean  @default(true)
-  scholarship    Boolean  @default(false)
+  id          String   @id @default(uuid())
+  firstName   String
+  lastName    String
+  birthDate   DateTime
+  photoUrl    String?
+  medicalInfo String?  @db.Text
+  active      Boolean  @default(true)
+  scholarship Boolean  @default(false)
 
-  qrCodeToken    String   @unique @default(uuid())
+  qrCodeToken String @unique @default(uuid())
 
-  schoolId       String
-  school         School   @relation(fields: [schoolId], references: [id])
-  categoryId     String
-  category       Category @relation(fields: [categoryId], references: [id])
-  guardianId     String
-  guardian       User     @relation("GuardianPlayers", fields: [guardianId], references: [id])
+  schoolId   String
+  school     School   @relation(fields: [schoolId], references: [id])
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+  guardianId String
+  guardian   User     @relation("GuardianPlayers", fields: [guardianId], references: [id])
 
   attendance      Attendance[]
   evaluations     Evaluation[]
   monthlyPayments MonthlyFee[]
 
-  createdAt      DateTime @default(now())
+  createdAt DateTime @default(now())
 }
 
 model Coach {
-  id        String   @id @default(uuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id])
-  bio       String?
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+  bio    String?
 
   categories Category[] @relation("CoachCategories")
+
+  // --- NUEVAS RELACIONES ---
+  tacticalBoards TacticalBoard[] // Pizarras creadas por el entrenador
 }
 
 // 4. MÓDULO DE ENTRENAMIENTO Y CONTENIDOS
@@ -150,32 +184,34 @@ model Exercise {
   imageUrl    String?
   isGlobal    Boolean  @default(false)
 
-  schoolId    String?
-  school      School?  @relation(fields: [schoolId], references: [id])
+  schoolId String?
+  school   School? @relation(fields: [schoolId], references: [id])
 
-  tags        String[]
+  tags String[]
 
   sessionItems SessionExercise[]
 }
 
 model TrainingSession {
-  id          String   @id @default(uuid())
-  date        DateTime
-  notes       String?
+  id         String   @id @default(uuid())
+  date       DateTime
+  notes      String?
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
 
-  categoryId  String
-  category    Category @relation(fields: [categoryId], references: [id])
+  exercises  SessionExercise[]
+  attendance Attendance[]
 
-  exercises   SessionExercise[]
-  attendance  Attendance[]
+  // --- NUEVAS RELACIONES ---
+  tacticalBoards TacticalBoard[] // Pizarras usadas en esta sesión
 }
 
 model SessionExercise {
-  id          String   @id @default(uuid())
+  id          String          @id @default(uuid())
   sessionId   String
   session     TrainingSession @relation(fields: [sessionId], references: [id])
   exerciseId  String
-  exercise    Exercise @relation(fields: [exerciseId], references: [id])
+  exercise    Exercise        @relation(fields: [exerciseId], references: [id])
   orderIndex  Int
   durationMin Int?
 }
@@ -191,42 +227,46 @@ model Attendance {
 }
 
 model Evaluation {
-  id        String   @id @default(uuid())
-  date      DateTime
-  type      String
-  value     Float
-  unit      String
+  id    String   @id @default(uuid())
+  date  DateTime
+  type  String // Se mantiene por compatibilidad, pero se recomienda usar testProtocol
+  value Float
+  unit  String
 
-  playerId  String
-  player    Player   @relation(fields: [playerId], references: [id])
+  playerId String
+  player   Player @relation(fields: [playerId], references: [id])
+
+  // --- NUEVAS RELACIONES ---
+  testProtocolId String?       
+  testProtocol   TestProtocol? @relation(fields: [testProtocolId], references: [id]) // Vinculación a baremos oficiales
 }
 
 // 5. MÓDULO COMERCIAL
 
 model MonthlyFee {
-  id          String        @id @default(uuid())
-  month       Int
-  year        Int
-  amount      Float
-  status      PaymentStatus @default(PENDING)
-  dueDate     DateTime
-  paidAt      DateTime?
+  id      String        @id @default(uuid())
+  month   Int
+  year    Int
+  amount  Float
+  status  PaymentStatus @default(PENDING)
+  dueDate DateTime
+  paidAt  DateTime?
 
-  playerId    String
-  player      Player        @relation(fields: [playerId], references: [id])
+  playerId String
+  player   Player @relation(fields: [playerId], references: [id])
 
-  receiptUrl  String?
+  receiptUrl String?
 }
 
 model Product {
-  id          String   @id @default(uuid())
-  name        String
-  price       Float
-  stock       Int
-  imageUrl    String?
-  schoolId    String
-  school      School   @relation(fields: [schoolId], references: [id])
-  active      Boolean  @default(true)
+  id       String  @id @default(uuid())
+  name     String
+  price    Float
+  stock    Int
+  imageUrl String?
+  schoolId String
+  school   School  @relation(fields: [schoolId], references: [id])
+  active   Boolean @default(true)
 }
 
 // 6. SISTEMA
@@ -240,4 +280,118 @@ model Notification {
   isRead    Boolean  @default(false)
   type      String
   createdAt DateTime @default(now())
+}
+
+// ==========================================
+// 7. NUEVOS MÓDULOS (ALINEACIÓN FUNCIONAL)
+// ==========================================
+
+// --- A. GROWTH HACKING (REFERIDOS) ---
+model Referral {
+  id        String         @id @default(uuid())
+  
+  referrerSchoolId String
+  referrerSchool   School @relation("SchoolReferrer", fields: [referrerSchoolId], references: [id])
+  
+  referredSchoolEmail String // Email invitado antes de que se cree la escuela
+  referredSchoolId    String? // Se llena cuando la escuela se crea
+  referredSchool      School? @relation("SchoolReferee", fields: [referredSchoolId], references: [id])
+
+  status        ReferralStatus @default(PENDING)
+  rewardClaimed Boolean        @default(false) // Si ya se aplicó el mes gratis
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// --- B. MONETIZACIÓN LOCAL (PUBLICIDAD) ---
+model Sponsorship {
+  id          String   @id @default(uuid())
+  name        String   // Ej: "Dentista San José"
+  imageUrl    String   // Banner publicitario
+  redirectUrl String?  // Link al sitio del sponsor
+  location    String   // Ej: "APP_BOTTOM_BANNER", "LOADING_SCREEN"
+  
+  isActive    Boolean  @default(true)
+  startDate   DateTime
+  endDate     DateTime
+  
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id])
+}
+
+// --- C. MODO INSTITUCIONAL (BENEFICIOS) ---
+model Benefit {
+  id          String   @id @default(uuid())
+  title       String   // Ej: "Gratuidad por Asistencia"
+  description String   @db.Text // Ej: "Mantener 80% de asistencia mensual"
+  active      Boolean  @default(true)
+  
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id])
+}
+
+// --- D. METODOLOGÍA AVANZADA (TESTS & TÁCTICA) ---
+model TestProtocol {
+  id          String   @id @default(uuid())
+  name        String   // Ej: "Yo-Yo Test Intermitente", "Salto Vertical CMJ"
+  description String   @db.Text // Protocolo de ejecución
+  unit        String   // "cm", "segundos", "nivel"
+  
+  isGlobal    Boolean  @default(true) // Si es true, lo ven todas las escuelas (creado por SuperAdmin)
+  
+  baremoJson  String?  @db.Text // JSON con tablas de referencia (Edad vs Resultado)
+  
+  evaluations Evaluation[]
+}
+
+model TacticalBoard {
+  id          String   @id @default(uuid())
+  title       String
+  
+  configurationJson String @db.Text // JSON con posiciones {players: [{id, x, y}], lines: []}
+  backgroundImage   String? // Cancha F5, F7, F11
+  
+  coachId     String
+  coach       Coach    @relation(fields: [coachId], references: [id])
+  
+  sessionId   String?
+  session     TrainingSession? @relation(fields: [sessionId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// --- E. GESTIÓN & OPERACIONES (KANBAN) ---
+model Task {
+  id          String       @id @default(uuid())
+  title       String
+  description String?      @db.Text
+  status      TaskStatus   @default(TODO)
+  priority    TaskPriority @default(MEDIUM)
+  
+  dueDate     DateTime?
+  
+  schoolId    String
+  school      School       @relation(fields: [schoolId], references: [id])
+  
+  assignedToUserId String?
+  assignedToUser   User?   @relation("UserTasks", fields: [assignedToUserId], references: [id])
+  
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+// --- F. CONFIGURACIÓN DE PLANES (LIMITES) ---
+model PlanLimit {
+  id            String   @id @default(uuid())
+  planType      PlanType @unique // 1 registro por tipo de plan
+  
+  maxStudents   Int      // Ej: 80 para SEMILLERO
+  maxCategories Int      // Ej: 6
+  maxCoaches    Int      // Ej: 3
+  
+  allowsStore       Boolean @default(false)
+  allowsGlobalLib   Boolean @default(false)
+  allowsFinance     Boolean @default(false)
 }

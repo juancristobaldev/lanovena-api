@@ -9,6 +9,10 @@ import { FinanceModule } from './modules/finance/finance.module';
 import { ProductsModule } from './modules/products/products.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CoreModule } from './modules/core/core.module';
+import { GrowthModule } from './modules/growth/growth.module';
+import { MethodologyModule } from './modules/methodology/methodology.module';
+import { OperationsModule } from './modules/operations/operations.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -20,6 +24,10 @@ import { CoreModule } from './modules/core/core.module';
     ProductsModule,
     AuthModule,
     CoreModule,
+    GrowthModule,
+    MethodologyModule,
+    OperationsModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

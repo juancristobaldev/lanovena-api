@@ -1,0 +1,69 @@
+import { Resolver, Mutation, Query, Args, Context } from '@nestjs/graphql';
+import { UseGuards } from '@nestjs/common';
+import { AuthService } from './auth.service';
+
+import { User as PrismaUser } from '@prisma/client';
+import { UserEntity } from 'src/entitys/user.entity';
+import { GqlAuthGuard } from 'src/auth/guards/gql-auth.guard';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import {
+  AuthResponse,
+  LoginInput,
+  OnboardingStepInput,
+  RegisterInput,
+} from 'src/entitys/auth.entity';
+
+@Resolver(() => AuthResponse)
+export class AuthResolver {
+  constructor(private authService: AuthService) {}
+
+  // --- PÚBLICO ---
+
+  @Mutation(() => AuthResponse, {
+    description: 'Inicio de sesión unificado (Director, Coach, Admin)',
+  })
+  async login(@Args('input') input: LoginInput): Promise<AuthResponse> {
+    return this.authService.login(input);
+  }
+
+  @Mutation(() => AuthResponse, {
+    description: 'Registro de nueva cuenta (Generalmente para Directores)',
+  })
+  async register(@Args('input') input: RegisterInput): Promise<AuthResponse> {
+    return this.authService.register(input);
+  }
+
+  // --- PROTEGIDO ---
+
+  @Query(() => UserEntity, {
+    description: 'Retorna el usuario actualmente autenticado (Perfil)',
+  })
+  @UseGuards(GqlAuthGuard)
+  async me(@CurrentUser() user: PrismaUser) {
+    return user;
+  }
+
+  @Mutation(() => AuthResponse, {
+    description: '👑 GOD MODE: SuperAdmin inicia sesión como otro usuario',
+  })
+  @UseGuards(GqlAuthGuard)
+  async impersonateUser(
+    @CurrentUser() admin: PrismaUser,
+    @Args('targetUserId') targetUserId: string,
+  ): Promise<AuthResponse> {
+    // La validación de rol SUPERADMIN se hace dentro del servicio
+    return this.authService.impersonate(admin.id, targetUserId);
+  }
+
+  @Mutation(() => Boolean, {
+    description: 'Actualiza el paso del wizard de onboarding',
+  })
+  @UseGuards(GqlAuthGuard)
+  async updateOnboardingStep(
+    @CurrentUser() user: PrismaUser,
+    @Args('input') input: OnboardingStepInput,
+  ): Promise<boolean> {
+    await this.authService.updateOnboardingStep(user.id, input.step);
+    return true;
+  }
+}

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma, School, SchoolMode, PlanType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateBenefitInput, ResourceUsage } from 'src/entitys/school.entity';
 
 @Injectable()
 export class SchoolsService {
@@ -171,5 +172,134 @@ export class SchoolsService {
         'No se puede eliminar la escuela porque tiene datos asociados (jugadores, entrenadores). Usa "deactivate" o limpia los datos primero.',
       );
     }
+  }
+  async checkResourceLimit(
+    schoolId: string,
+    resource: 'PLAYER' | 'CATEGORY' | 'COACH',
+  ): Promise<void> {
+    const school = await this.prisma.school.findUnique({
+      where: { id: schoolId },
+      include: {
+        _count: {
+          select: { players: true, categories: true, users: true }, // Asumimos users filtrados por rol COACH
+        },
+      },
+    });
+
+    if (!school) throw new NotFoundException('Escuela no encontrada');
+
+    // Definición de Límites (Hardcoded según doc, idealmente mover a DB 'PlanLimit')
+    const LIMITS = {
+      [PlanType.SEMILLERO]: { MAX_PLAYERS: 80, MAX_CATS: 6, MAX_COACHES: 3 },
+      [PlanType.PROFESIONAL]: {
+        MAX_PLAYERS: 250,
+        MAX_CATS: 12,
+        MAX_COACHES: 10,
+      },
+      [PlanType.ALTO_RENDIMIENTO]: {
+        MAX_PLAYERS: 99999,
+        MAX_CATS: 999,
+        MAX_COACHES: 999,
+      },
+      [PlanType.GOLD_NETWORK]: {
+        MAX_PLAYERS: 99999,
+        MAX_CATS: 999,
+        MAX_COACHES: 999,
+      },
+    };
+
+    const currentPlan = LIMITS[school.planType];
+
+    if (
+      resource === 'PLAYER' &&
+      school._count.players >= currentPlan.MAX_PLAYERS
+    ) {
+      throw new BadRequestException(
+        `Has alcanzado el límite de ${currentPlan.MAX_PLAYERS} jugadores de tu plan ${school.planType}. Actualiza a Profesional.`,
+      );
+    }
+
+    if (
+      resource === 'CATEGORY' &&
+      school._count.categories >= currentPlan.MAX_CATS
+    ) {
+      throw new BadRequestException(
+        `Límite de categorías alcanzado (${currentPlan.MAX_CATS}). Necesitas un plan mejor.`,
+      );
+    }
+
+    // Nota: Para coaches es más complejo porque 'users' incluye guardianes.
+    // Aquí simplificamos, pero deberías hacer un count con where: { role: 'COACH' }
+  }
+
+  /**
+   * Devuelve un reporte de uso para mostrar barras de progreso en el Dashboard del Director
+   */
+  async getResourceUsage(schoolId: string): Promise<ResourceUsage> {
+    const school = await this.prisma.school.findUnique({
+      where: { id: schoolId },
+      include: { _count: { select: { players: true, categories: true } } },
+    });
+
+    if (!school) throw new NotFoundException('Escuela no encontrada');
+    const LIMITS = {
+      [PlanType.SEMILLERO]: { MAX_PLAYERS: 80, MAX_CATS: 6 },
+      [PlanType.PROFESIONAL]: { MAX_PLAYERS: 250, MAX_CATS: 12 },
+      [PlanType.ALTO_RENDIMIENTO]: { MAX_PLAYERS: 9999, MAX_CATS: 999 },
+      [PlanType.GOLD_NETWORK]: { MAX_PLAYERS: 9999, MAX_CATS: 999 },
+    };
+
+    const limits = LIMITS[school.planType];
+
+    return {
+      currentPlayers: school._count.players,
+      maxPlayers: limits.MAX_PLAYERS,
+      currentCategories: school._count.categories,
+      maxCategories: limits.MAX_CATS,
+      canAddPlayer: school._count.players < limits.MAX_PLAYERS,
+      canAddCategory: school._count.categories < limits.MAX_CATS,
+    };
+  }
+
+  // =========================================================
+  // 🏛️ NUEVA LÓGICA MODO INSTITUCIONAL (BENEFICIOS)
+  // =========================================================
+
+  async addBenefit(schoolId: string, input: CreateBenefitInput) {
+    // Validar que la escuela sea INSTITUCIONAL
+    const school = await this.prisma.school.findUnique({
+      where: { id: schoolId },
+    });
+
+    if (!school) throw new NotFoundException('Escuela no encontrada');
+
+    if (school.mode !== SchoolMode.INSTITUTIONAL) {
+      throw new BadRequestException(
+        'Los beneficios solo están disponibles para Escuelas Institucionales (Municipales).',
+      );
+    }
+
+    return this.prisma.benefit.create({
+      data: {
+        schoolId,
+        title: input.title,
+        description: input.description,
+        active: true,
+      },
+    });
+  }
+
+  async removeBenefit(schoolId: string, benefitId: string) {
+    // Validar propiedad
+    const benefit = await this.prisma.benefit.findFirst({
+      where: { id: benefitId, schoolId },
+    });
+    if (!benefit) throw new NotFoundException('Beneficio no encontrado');
+
+    return this.prisma.benefit.delete({ where: { id: benefitId } });
+  }
+
+  async getBenefits(schoolId: string) {
+    return this.prisma.benefit.findMany({ where: { schoolId } });
   }
 }

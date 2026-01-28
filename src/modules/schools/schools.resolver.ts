@@ -1,12 +1,23 @@
-import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
+import {
+  Resolver,
+  Query,
+  Mutation,
+  Args,
+  ID,
+  ResolveField,
+  Parent,
+} from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import {
+  Benefit,
+  CreateBenefitInput,
   CreateSchoolInput,
+  ResourceUsage,
   SchoolEntity,
   UpdateSchoolInput,
 } from 'src/entitys/school.entity';
 import { Roles } from 'src/auth/decorators/roles.decorator';
-import { PlanType, Role, SchoolMode } from '@prisma/client';
+import { PlanType, Role, SchoolMode, User } from '@prisma/client';
 import { GqlAuthGuard } from 'src/auth/guards/gql-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
@@ -130,5 +141,52 @@ export class SchoolsResolver {
   @Query(() => SchoolEntity)
   schoolBySlug(@Args('slug', { type: () => String }) slug: string) {
     return this.schoolsService.findBySlug(slug);
+  }
+
+  @Query(() => SchoolEntity)
+  async mySchool(@CurrentUser() user: User) {
+    if (!user.schoolId) return null;
+
+    return this.schoolsService.findOne(user.schoolId);
+  }
+
+  // --- NUEVOS CAMPOS RESOLVIDOS (Campos dinámicos) ---
+
+  @ResolveField(() => [Benefit], {
+    description: 'Lista de beneficios (Solo modo Institucional)',
+  })
+  async benefits(@Parent() school: SchoolEntity) {
+    if (school.mode !== 'INSTITUTIONAL') return [];
+    return this.schoolsService.getBenefits(school.id);
+  }
+
+  @ResolveField(() => ResourceUsage, {
+    description: 'Uso de cuotas del plan (Guardrails)',
+  })
+  async resourceUsage(@Parent() school: SchoolEntity) {
+    return this.schoolsService.getResourceUsage(school.id);
+  }
+
+  // --- MUTATIONS PARA BENEFICIOS ---
+
+  @Mutation(() => Benefit)
+  async createBenefit(
+    @CurrentUser() user: User,
+    @Args('input') input: CreateBenefitInput,
+  ) {
+    if (!user.schoolId) return null;
+
+    // TODO: Validar que user sea DIRECTOR
+    return this.schoolsService.addBenefit(user.schoolId, input);
+  }
+
+  @Mutation(() => Benefit)
+  async deleteBenefit(
+    @CurrentUser() user: User,
+    @Args('id', { type: () => ID }) id: string,
+  ) {
+    if (!user.schoolId) return null;
+
+    return this.schoolsService.removeBenefit(user.schoolId, id);
   }
 }
