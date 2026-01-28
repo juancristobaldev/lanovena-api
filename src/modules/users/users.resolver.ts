@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   NotFoundException,
   ConflictException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -63,8 +64,17 @@ export class UsersResolver {
   }
 
   @Query(() => UserEntity)
-  me(@Context() context: any) {
-    return context.user;
+  async me(@Context() context: any) {
+    const user = await this.usersService.findById(
+      context.user.id,
+      context.user,
+    );
+
+    console.log({ user });
+    if (!user) {
+      throw new UnauthorizedException('Usuario no encontrado');
+    }
+    return user;
   }
 
   @Query(() => UserEntity)

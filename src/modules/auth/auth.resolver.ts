@@ -12,10 +12,14 @@ import {
   OnboardingStepInput,
   RegisterInput,
 } from 'src/entitys/auth.entity';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Resolver(() => AuthResponse)
 export class AuthResolver {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private prisma: PrismaService,
+  ) {}
 
   // --- PÚBLICO ---
 
@@ -40,7 +44,22 @@ export class AuthResolver {
   })
   @UseGuards(GqlAuthGuard)
   async me(@CurrentUser() user: PrismaUser) {
-    return user;
+    const auth = await this.prisma.user.findUnique({
+      where: { id: user?.id },
+      include: {
+        schools: {
+          include: {
+            school: {
+              include: {
+                products: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return auth;
   }
 
   @Mutation(() => AuthResponse, {

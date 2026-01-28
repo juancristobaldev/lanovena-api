@@ -1,0 +1,505 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type UserEntity {
+  id: ID!
+  email: String!
+  fullName: String!
+  phone: String
+  role: UserRole!
+  isActive: Boolean!
+  schoolId: ID
+  school: [SchoolEntity!]
+  schools: [SchoolStaff!]
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+enum UserRole {
+  SUPERADMIN
+  DIRECTOR
+  COACH
+  GUARDIAN
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+"""Beneficio o subvención municipal (Solo Modo Institucional)"""
+type Benefit {
+  id: ID!
+
+  """Título del beneficio (ej: Gratuidad Junaeb)"""
+  title: String!
+
+  """Descripción o requisitos (ej: 80% asistencia)"""
+  description: String!
+  active: Boolean!
+  schoolId: String!
+}
+
+type SchoolEntity {
+  id: ID!
+
+  """Nombre oficial de la escuela"""
+  name: String!
+
+  """Identificador único para la URL"""
+  slug: String!
+  mode: SchoolMode!
+  planType: PlanType!
+  subscriptionStatus: String!
+  logoUrl: String
+
+  """Datos bancarios para transferencias"""
+  bankDetails: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+
+  """Lista de beneficios (Solo Modo Institucional)"""
+  benefits: [Benefit!]
+
+  """Uso de cuotas del plan (Guardrails)"""
+  resourceUsage: ResourceUsage!
+}
+
+enum SchoolMode {
+  COMMERCIAL
+  INSTITUTIONAL
+}
+
+enum PlanType {
+  SEMILLERO
+  PROFESIONAL
+  ALTO_RENDIMIENTO
+  GOLD_NETWORK
+}
+
+type SchoolStaff {
+  id: ID!
+  user: UserEntity!
+  school: SchoolEntity!
+  role: SchoolRole!
+  createdAt: DateTime!
+}
+
+"""Rol del usuario dentro de una escuela"""
+enum SchoolRole {
+  DIRECTOR
+  COACH
+  STAFF
+}
+
+"""Estado actual de uso de recursos vs Límites del Plan"""
+type ResourceUsage {
+  currentPlayers: Int!
+  maxPlayers: Int!
+  currentCategories: Int!
+  maxCategories: Int!
+  canAddPlayer: Boolean!
+  canAddCategory: Boolean!
+}
+
+type PlayerEntity {
+  id: ID!
+  firstName: String!
+  lastName: String!
+  birthDate: DateTime!
+  photoUrl: String
+  medicalInfo: String
+  active: Boolean!
+  scholarship: Boolean!
+  qrCodeToken: String!
+  categoryId: ID!
+  guardianId: ID!
+}
+
+type TrainingSessionEntity {
+  id: ID!
+  date: DateTime!
+  notes: String
+  categoryId: ID!
+}
+
+type MonthlyFeeEntity {
+  id: ID!
+
+  """Mes numérico (1-12)"""
+  month: Int!
+  year: Int!
+  amount: Float!
+  status: PaymentStatus!
+  dueDate: DateTime!
+  paidAt: DateTime
+  receiptUrl: String
+  playerId: ID!
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  OVERDUE
+  WAIVED
+}
+
+type ProductEntity {
+  id: ID!
+  name: String!
+  description: String
+  price: Float!
+
+  """Cantidad disponible en inventario"""
+  stock: Int!
+  imageUrl: String
+  active: Boolean!
+  schoolId: ID!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type AuthResponse {
+  """Token JWT para acceder a los endpoints protegidos"""
+  accessToken: String!
+
+  """Datos del usuario autenticado"""
+  user: UserEntity!
+}
+
+"""Registro de una invitación entre directores"""
+type Referral {
+  id: ID!
+
+  """ID de la escuela que envió la invitación"""
+  referrerSchoolId: String!
+
+  """La escuela que invitó (Director A)"""
+  referrerSchool: SchoolEntity!
+
+  """Email invitado"""
+  referredSchoolEmail: String!
+
+  """ID de la escuela creada (si ya aceptó)"""
+  referredSchoolId: String
+
+  """La escuela nueva (Director B) si ya existe"""
+  referredSchool: SchoolEntity
+  status: ReferralStatus!
+
+  """Si el Director A ya recibió su mes gratis"""
+  rewardClaimed: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Estado de la invitación de referido"""
+enum ReferralStatus {
+  PENDING
+  CONVERTED
+  REJECTED
+}
+
+"""Banner publicitario local (Sponsor)"""
+type Sponsorship {
+  id: ID!
+
+  """Nombre del cliente (ej: Dentista San José)"""
+  name: String!
+
+  """URL de la imagen del banner"""
+  imageUrl: String!
+
+  """Link de redirección al hacer clic"""
+  redirectUrl: String
+
+  """Ubicación en la app (ej: APP_HOME, LOADING)"""
+  location: String!
+  isActive: Boolean!
+  startDate: DateTime!
+  endDate: DateTime!
+  schoolId: String!
+}
+
+"""Protocolo estandarizado de evaluación física/técnica"""
+type TestProtocol {
+  id: ID!
+
+  """Nombre del test (Ej: Yo-Yo Recovery L1)"""
+  name: String!
+
+  """Instrucciones de ejecución"""
+  description: String!
+
+  """Unidad de medida (cm, seg, repeticiones)"""
+  unit: String!
+
+  """Si es visible para todas las escuelas"""
+  isGlobal: Boolean!
+
+  """JSON String con tablas de baremos (edad vs nota)"""
+  baremoJson: String
+}
+
+"""Pizarra táctica digital guardada por un entrenador"""
+type TacticalBoard {
+  id: ID!
+  title: String!
+
+  """JSON String con las coordenadas de jugadores y líneas"""
+  configurationJson: String!
+
+  """Imagen de fondo (URL o tipo de cancha)"""
+  backgroundImage: String
+  coachId: String!
+
+  """ID de la sesión asociada (si aplica)"""
+  sessionId: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Query {
+  schools(mode: SchoolMode): [SchoolEntity!]!
+  schoolById(schoolId: ID!): SchoolEntity!
+  schoolBySlug(slug: String!): SchoolEntity!
+  mySchool: SchoolEntity!
+  users: [UserEntity!]!
+
+  """Retorna el usuario actualmente autenticado (Perfil)"""
+  me: UserEntity!
+  userById(userId: ID!): UserEntity!
+  coaches: [UserEntity!]!
+  guardians: [UserEntity!]!
+  playersByCategory(categoryId: ID!): [PlayerEntity!]!
+  playersByGuardian(guardianId: ID!): [PlayerEntity!]!
+  playerProfile(playerId: ID!): PlayerEntity!
+  scanQrPlayer(qrCodeToken: String!): PlayerEntity!
+  trainingSessionsByCategory(categoryId: ID!): [TrainingSessionEntity!]!
+  trainingSession(sessionId: ID!): TrainingSessionEntity!
+  monthlyFeesByPlayer(playerId: ID!): [MonthlyFeeEntity!]!
+  monthlyFeesBySchool: [MonthlyFeeEntity!]!
+  productsBySchool: [ProductEntity!]!
+  activeProducts: [ProductEntity!]!
+  product(productId: ID!): ProductEntity!
+  myReferrals: [Referral!]!
+  activeBanners(location: String!): [Sponsorship!]!
+  allSponsorships: [Sponsorship!]!
+
+  """Lista de tests estandarizados globales"""
+  globalTestProtocols: [TestProtocol!]!
+
+  """Pizarras creadas por el usuario actual"""
+  myTacticalBoards: [TacticalBoard!]!
+}
+
+type Mutation {
+  createSchool(input: CreateSchoolInput!): SchoolEntity!
+  updateSchool(schoolId: ID!, input: UpdateSchoolInput!): SchoolEntity!
+  switchSchoolMode(schoolId: ID!, mode: SchoolMode!): SchoolEntity!
+  updateSchoolPlan(schoolId: ID!, plan: PlanType!): SchoolEntity!
+  deactivateSchool(schoolId: ID!): SchoolEntity!
+  createBenefit(input: CreateBenefitInput!): Benefit!
+  deleteBenefit(id: ID!): Benefit!
+  createUser(input: CreateUserInput!): UserEntity!
+  updateUser(userId: ID!, input: UpdateUserInput!): UserEntity!
+  deactivateUser(userId: ID!): Boolean!
+  createPlayer(input: CreatePlayerInput!): PlayerEntity!
+  updatePlayer(playerId: ID!, input: UpdatePlayerInput!): PlayerEntity!
+  togglePlayerActive(playerId: ID!): PlayerEntity!
+  createTrainingSession(input: CreateTrainingSessionInput!): TrainingSessionEntity!
+  updateTrainingSession(sessionId: ID!, input: UpdateTrainingSessionInput!): TrainingSessionEntity!
+  removeTrainingSession(sessionId: ID!): Boolean!
+  createMonthlyFee(playerId: ID!, amount: Float!, month: Float!, year: Float!, dueDate: DateTime!): MonthlyFeeEntity!
+  markFeeAsPaid(feeId: ID!, receiptUrl: String): MonthlyFeeEntity!
+  waiveMonthlyFee(feeId: ID!): MonthlyFeeEntity!
+  createProduct(input: CreateProductInput!): ProductEntity!
+  updateProduct(productId: ID!, input: UpdateProductInput!): ProductEntity!
+  removeProduct(productId: ID!): ProductEntity!
+
+  """Inicio de sesión unificado (Director, Coach, Admin)"""
+  login(input: LoginInput!): AuthResponse!
+
+  """Registro de nueva cuenta (Generalmente para Directores)"""
+  register(input: RegisterInput!): AuthResponse!
+
+  """👑 GOD MODE: SuperAdmin inicia sesión como otro usuario"""
+  impersonateUser(targetUserId: String!): AuthResponse!
+
+  """Actualiza el paso del wizard de onboarding"""
+  updateOnboardingStep(input: OnboardingStepInput!): Boolean!
+  sendInvite(email: String!): Referral!
+  createSponsorship(input: CreateSponsorshipInput!): Sponsorship!
+  createTestProtocol(input: CreateTestProtocolInput!): TestProtocol!
+  saveTacticalBoard(input: CreateTacticalBoardInput!): TacticalBoard!
+  updateTacticalBoard(input: UpdateTacticalBoardInput!): TacticalBoard!
+  deleteTacticalBoard(id: ID!): TacticalBoard!
+}
+
+input CreateSchoolInput {
+  name: String!
+
+  """Sin espacios, solo letras, números y guiones"""
+  slug: String!
+  mode: SchoolMode = COMMERCIAL
+  subscriptionStatus: String!
+  planType: PlanType = SEMILLERO
+}
+
+input UpdateSchoolInput {
+  name: String
+
+  """Sin espacios, solo letras, números y guiones"""
+  slug: String
+  mode: SchoolMode = COMMERCIAL
+  subscriptionStatus: String
+  planType: PlanType = SEMILLERO
+  bankDetails: String
+  logoUrl: String
+}
+
+"""Input para crear un beneficio (Modo Institucional)"""
+input CreateBenefitInput {
+  title: String!
+  description: String!
+}
+
+input CreateUserInput {
+  email: String!
+
+  """Mínimo 6 caracteres"""
+  password: String!
+  fullName: String!
+  role: UserRole! = GUARDIAN
+  phone: String
+  schoolId: ID
+}
+
+input UpdateUserInput {
+  email: String
+
+  """Mínimo 6 caracteres"""
+  password: String
+  fullName: String
+  role: UserRole = GUARDIAN
+  phone: String
+  schoolId: ID
+  isActive: Boolean
+}
+
+input CreatePlayerInput {
+  firstName: String!
+  lastName: String!
+  birthDate: DateTime!
+  photoUrl: String
+  medicalInfo: String
+  scholarship: Boolean = false
+  categoryId: ID!
+  guardianId: ID!
+}
+
+input UpdatePlayerInput {
+  firstName: String
+  lastName: String
+  birthDate: DateTime
+  photoUrl: String
+  medicalInfo: String
+  scholarship: Boolean = false
+  categoryId: ID
+  guardianId: ID
+  active: Boolean
+}
+
+input CreateTrainingSessionInput {
+  date: DateTime!
+  notes: String
+  categoryId: ID!
+
+  """IDs de los ejercicios"""
+  exerciseIds: [ID!]
+}
+
+input UpdateTrainingSessionInput {
+  date: DateTime
+  notes: String
+  categoryId: ID
+
+  """IDs de los ejercicios"""
+  exerciseIds: [ID!]
+}
+
+input CreateProductInput {
+  name: String!
+  description: String
+  price: Float!
+  stock: Int!
+  imageUrl: String
+  schoolId: ID!
+}
+
+input UpdateProductInput {
+  name: String
+  description: String
+  price: Float
+  stock: Int
+  imageUrl: String
+  schoolId: ID
+  active: Boolean
+}
+
+input LoginInput {
+  email: String!
+  password: String!
+}
+
+input RegisterInput {
+  email: String!
+  password: String!
+  fullName: String!
+  phone: String
+}
+
+input OnboardingStepInput {
+  """El paso del wizard que acaba de completar (1-4)"""
+  step: Int!
+}
+
+"""Datos para crear un nuevo patrocinio"""
+input CreateSponsorshipInput {
+  name: String!
+  imageUrl: String!
+  redirectUrl: String
+
+  """Ej: APP_BOTTOM_BANNER"""
+  location: String!
+  startDate: DateTime!
+  endDate: DateTime!
+}
+
+"""Datos para crear un nuevo protocolo de test"""
+input CreateTestProtocolInput {
+  name: String!
+  description: String!
+  unit: String!
+  baremoJson: String
+}
+
+"""Datos para guardar una pizarra táctica"""
+input CreateTacticalBoardInput {
+  title: String!
+
+  """JSON stringificado con el estado del canvas"""
+  configurationJson: String!
+  backgroundImage: String
+
+  """Opcional: vincular a una sesión de entrenamiento"""
+  sessionId: String
+}
+
+"""Datos para actualizar una pizarra existente"""
+input UpdateTacticalBoardInput {
+  id: ID!
+  title: String
+  configurationJson: String
+}

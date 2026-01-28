@@ -37,9 +37,20 @@ export class SchoolsResolver {
    * SOLO SuperAdmin
    */
   @Mutation(() => SchoolEntity)
-  @Roles(Role.SUPERADMIN)
-  createSchool(@Args('input') input: CreateSchoolInput) {
-    return this.schoolsService.create(input);
+  @Roles(Role.DIRECTOR)
+  createSchool(
+    @CurrentUser() user: User,
+    @Args('input') input: CreateSchoolInput,
+  ) {
+    return this.schoolsService.create({
+      ...input,
+      staff: {
+        create: {
+          role: Role.DIRECTOR,
+          userId: user?.id,
+        },
+      },
+    });
   }
 
   /**

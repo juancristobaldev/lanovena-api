@@ -15,10 +15,22 @@ import {
   IsString,
   Matches,
 } from 'class-validator';
+import { UserEntity } from './user.entity';
 
 // 1. Registrar Enums para GraphQL
 registerEnumType(SchoolMode, { name: 'SchoolMode' });
 registerEnumType(PlanType, { name: 'PlanType' });
+
+export enum SchoolRole {
+  DIRECTOR = 'DIRECTOR',
+  COACH = 'COACH',
+  STAFF = 'STAFF',
+}
+
+registerEnumType(SchoolRole, {
+  name: 'SchoolRole',
+  description: 'Rol del usuario dentro de una escuela',
+});
 
 @ObjectType({
   description: 'Beneficio o subvención municipal (Solo Modo Institucional)',
@@ -84,6 +96,28 @@ export class SchoolEntity {
     description: 'Lista de beneficios (Solo Modo Institucional)',
   })
   benefits?: Benefit[];
+}
+
+// src/graphql/entities/school-staff.entity.ts
+
+@ObjectType()
+export class SchoolStaff {
+  @Field(() => ID)
+  id: string;
+
+  // --- RELACIONES ---
+  @Field(() => UserEntity)
+  user: UserEntity;
+
+  @Field(() => SchoolEntity)
+  school: SchoolEntity;
+
+  // --- DATA ---
+  @Field(() => SchoolRole)
+  role: SchoolRole;
+
+  @Field()
+  createdAt: Date;
 }
 
 @InputType()

@@ -58,6 +58,18 @@ export class UsersService {
   async findById(userId: string, actor: { role: Role; schoolId?: string }) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
+      include: {
+        school: true,
+        schools: {
+          include: {
+            school: {
+              include: {
+                products: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!user) {
