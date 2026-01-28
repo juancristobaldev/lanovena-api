@@ -1,0 +1,243 @@
+// 1. CONFIGURACIÓN DEL GENERADOR Y DATASOURCE
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+
+}
+
+// 2. ENUMS (DEFINICIONES ESTÁTICAS DEL NEGOCIO)
+
+enum Role {
+  SUPERADMIN
+  DIRECTOR
+  COACH
+  GUARDIAN
+}
+
+enum SchoolMode {
+  COMMERCIAL
+  INSTITUTIONAL
+}
+
+enum PlanType {
+  SEMILLERO
+  PROFESIONAL
+  ALTO_RENDIMIENTO
+  GOLD_NETWORK
+}
+
+enum CategoryType {
+  FORMATIVA
+  SELECTIVA
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  JUSTIFIED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  OVERDUE
+  WAIVED
+}
+
+// 3. MODELOS PRINCIPALES
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  fullName  String
+  phone     String?
+  role      Role     @default(GUARDIAN)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isActive  Boolean  @default(true)
+
+  schoolId  String?
+  school    School?  @relation(fields: [schoolId], references: [id])
+
+  managedPlayers Player[] @relation("GuardianPlayers")
+  coachProfile   Coach?
+
+  notifications  Notification[]
+}
+
+model School {
+  id          String      @id @default(uuid())
+  name        String
+  slug        String      @unique
+  logoUrl     String?
+  mode        SchoolMode  @default(COMMERCIAL)
+
+  bankDetails String?     @db.Text
+
+  planType            PlanType @default(SEMILLERO)
+  subscriptionStatus  String
+  nextBillingDate     DateTime?
+
+  users       User[]
+  categories  Category[]
+  players     Player[]
+  products    Product[]
+  exercises   Exercise[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Category {
+  id        String       @id @default(uuid())
+  name      String
+  type      CategoryType @default(FORMATIVA)
+  schoolId  String
+  school    School       @relation(fields: [schoolId], references: [id])
+
+  players   Player[]
+  coaches   Coach[]      @relation("CoachCategories")
+  sessions  TrainingSession[]
+}
+
+model Player {
+  id             String   @id @default(uuid())
+  firstName      String
+  lastName       String
+  birthDate      DateTime
+  photoUrl       String?
+  medicalInfo    String?  @db.Text
+  active         Boolean  @default(true)
+  scholarship    Boolean  @default(false)
+
+  qrCodeToken    String   @unique @default(uuid())
+
+  schoolId       String
+  school         School   @relation(fields: [schoolId], references: [id])
+  categoryId     String
+  category       Category @relation(fields: [categoryId], references: [id])
+  guardianId     String
+  guardian       User     @relation("GuardianPlayers", fields: [guardianId], references: [id])
+
+  attendance      Attendance[]
+  evaluations     Evaluation[]
+  monthlyPayments MonthlyFee[]
+
+  createdAt      DateTime @default(now())
+}
+
+model Coach {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  bio       String?
+
+  categories Category[] @relation("CoachCategories")
+}
+
+// 4. MÓDULO DE ENTRENAMIENTO Y CONTENIDOS
+
+model Exercise {
+  id          String   @id @default(uuid())
+  title       String
+  description String   @db.Text
+  videoUrl    String?
+  imageUrl    String?
+  isGlobal    Boolean  @default(false)
+
+  schoolId    String?
+  school      School?  @relation(fields: [schoolId], references: [id])
+
+  tags        String[]
+
+  sessionItems SessionExercise[]
+}
+
+model TrainingSession {
+  id          String   @id @default(uuid())
+  date        DateTime
+  notes       String?
+
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+
+  exercises   SessionExercise[]
+  attendance  Attendance[]
+}
+
+model SessionExercise {
+  id          String   @id @default(uuid())
+  sessionId   String
+  session     TrainingSession @relation(fields: [sessionId], references: [id])
+  exerciseId  String
+  exercise    Exercise @relation(fields: [exerciseId], references: [id])
+  orderIndex  Int
+  durationMin Int?
+}
+
+model Attendance {
+  id        String           @id @default(uuid())
+  sessionId String
+  session   TrainingSession  @relation(fields: [sessionId], references: [id])
+  playerId  String
+  player    Player           @relation(fields: [playerId], references: [id])
+  status    AttendanceStatus
+  timestamp DateTime         @default(now())
+}
+
+model Evaluation {
+  id        String   @id @default(uuid())
+  date      DateTime
+  type      String
+  value     Float
+  unit      String
+
+  playerId  String
+  player    Player   @relation(fields: [playerId], references: [id])
+}
+
+// 5. MÓDULO COMERCIAL
+
+model MonthlyFee {
+  id          String        @id @default(uuid())
+  month       Int
+  year        Int
+  amount      Float
+  status      PaymentStatus @default(PENDING)
+  dueDate     DateTime
+  paidAt      DateTime?
+
+  playerId    String
+  player      Player        @relation(fields: [playerId], references: [id])
+
+  receiptUrl  String?
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  price       Float
+  stock       Int
+  imageUrl    String?
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id])
+  active      Boolean  @default(true)
+}
+
+// 6. SISTEMA
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  type      String
+  createdAt DateTime @default(now())
+}
