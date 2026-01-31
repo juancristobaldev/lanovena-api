@@ -4,11 +4,41 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma } from '@prisma/client';
+import { AttendanceStatus, Prisma } from '@prisma/client';
 
 @Injectable()
 export class TrainingSessionsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async registerAttendance(
+    sessionId: string,
+    playerId: string,
+    status: AttendanceStatus,
+  ) {
+    return this.prisma.attendance.upsert({
+      where: {
+        // Gracias al @@unique en el schema, Prisma genera este campo compuesto
+        sessionId_playerId: {
+          sessionId,
+          playerId,
+        },
+      },
+      // Si ya existe la asistencia, solo actualizamos el estado
+      update: {
+        status,
+      },
+      // Si NO existe, la creamos nueva
+      create: {
+        sessionId,
+        playerId,
+        status,
+      },
+      // Incluimos al jugador para que el frontend pueda actualizar la UI inmediatamente
+      include: {
+        player: true,
+      },
+    });
+  }
 
   /* ===========================================================================
    * CREATE
@@ -46,7 +76,22 @@ export class TrainingSessionsService {
     const session = await this.prisma.trainingSession.findUnique({
       where: { id },
       include: {
-        category: true,
+        category: {
+          include: {
+            players: true, // Necesario para mostrar la lista completa de alumnos
+          },
+        },
+        exercises: {
+          include: {
+            exercise: true, // Detalles del ejercicio (nombre, foto)
+          },
+          orderBy: { orderIndex: 'asc' }, // Importante para el orden
+        },
+        attendance: {
+          include: {
+            player: true, // Para saber el nombre del alumno que asistió
+          },
+        },
       },
     });
 

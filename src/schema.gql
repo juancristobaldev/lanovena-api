@@ -141,11 +141,51 @@ type PlayerEntity {
   guardianId: ID!
 }
 
+type ExerciseEntity {
+  id: ID!
+  name: String!
+  description: String
+  videoUrl: String
+  imageUrl: String
+  category: String!
+}
+
+type SessionExerciseEntity {
+  id: ID!
+
+  """Duración en minutos para esta sesión específica"""
+  durationMinutes: Int!
+
+  """Orden de ejecución en la sesión (1, 2, 3...)"""
+  orderIndex: Int!
+  specificNotes: String
+  exercise: ExerciseEntity!
+}
+
+type AttendanceEntity {
+  id: ID!
+  status: AttendanceStatus!
+  notes: String
+  createdAt: DateTime!
+  player: PlayerEntity!
+  session: TrainingSessionEntity!
+}
+
+"""Estado de asistencia del jugador (PRESENT, ABSENT, LATE, EXCUSED)"""
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  JUSTIFIED
+}
+
 type TrainingSessionEntity {
   id: ID!
   date: DateTime!
   notes: String
   categoryId: ID!
+  category: CategoryEntity!
+  exercises: [SessionExerciseEntity!]
+  attendance: [AttendanceEntity!]
 }
 
 type MonthlyFeeEntity {
@@ -153,25 +193,28 @@ type MonthlyFeeEntity {
   amount: Float!
   dueDate: DateTime!
   paymentDate: DateTime
-  status: FeeStatus!
-  paymentMethod: PaymentMethod
-  month: Float!
-  year: Float!
+  status: PaymentStatus!
+  paymentMethod: String
+  month: Int!
+  year: Int!
+  schoolId: String!
   player: PlayerEntity!
 }
 
-enum FeeStatus {
+"""Estado del pago de la mensualidad"""
+enum PaymentStatus {
   PENDING
   PAID
   OVERDUE
   WAIVED
 }
 
-enum PaymentMethod {
-  CASH
-  TRANSFER
-  DEBIT
-  CREDIT
+type FinanceSummary {
+  totalCollected: Float!
+  totalPending: Float!
+  totalOverdue: Float!
+  expectedTotal: Float!
+  collectionRate: Float!
 }
 
 type ProductEntity {
@@ -311,8 +354,8 @@ type Query {
   scanQrPlayer(qrCodeToken: String!): PlayerEntity!
   trainingSessionsByCategory(categoryId: ID!): [TrainingSessionEntity!]!
   trainingSession(sessionId: ID!): TrainingSessionEntity!
-  monthlyFeesByPlayer(playerId: ID!): [MonthlyFeeEntity!]!
-  monthlyFeesBySchool: [MonthlyFeeEntity!]!
+  financeSummary(schoolId: ID!, month: Int!, year: Int!): FinanceSummary!
+  monthlyFees(schoolId: ID!, month: Int!, year: Int!, status: PaymentStatus): [MonthlyFeeEntity!]!
   productsBySchool: [ProductEntity!]!
   activeProducts: [ProductEntity!]!
   product(productId: ID!): ProductEntity!
@@ -348,9 +391,7 @@ type Mutation {
   createTrainingSession(input: CreateTrainingSessionInput!): TrainingSessionEntity!
   updateTrainingSession(sessionId: ID!, input: UpdateTrainingSessionInput!): TrainingSessionEntity!
   removeTrainingSession(sessionId: ID!): Boolean!
-  createMonthlyFee(playerId: ID!, amount: Float!, month: Float!, year: Float!, dueDate: DateTime!): MonthlyFeeEntity!
-  markFeeAsPaid(feeId: ID!, receiptUrl: String): MonthlyFeeEntity!
-  waiveMonthlyFee(feeId: ID!): MonthlyFeeEntity!
+  markFeeAsPaid(input: MarkFeeAsPaidInput!): MonthlyFeeEntity!
   createProduct(input: CreateProductInput!): ProductEntity!
   updateProduct(productId: ID!, input: UpdateProductInput!): ProductEntity!
   removeProduct(productId: ID!): ProductEntity!
@@ -467,6 +508,18 @@ input UpdateTrainingSessionInput {
 
   """IDs de los ejercicios"""
   exerciseIds: [ID!]
+}
+
+input MarkFeeAsPaidInput {
+  feeId: ID!
+  paymentMethod: PaymentMethod!
+}
+
+enum PaymentMethod {
+  CASH
+  TRANSFER
+  DEBIT
+  CREDIT
 }
 
 input CreateProductInput {

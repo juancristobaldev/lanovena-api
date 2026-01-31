@@ -8,8 +8,9 @@ import {
 } from 'src/entitys/training-session.entity';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { GqlAuthGuard } from 'src/auth/guards/gql-auth.guard';
-import { Role } from '@prisma/client';
+import { AttendanceStatus, Role } from '@prisma/client';
 import { Roles } from 'src/auth/decorators/roles.decorator';
+import { AttendanceEntity } from 'src/entitys/attendace-session.entity';
 
 @Resolver(() => TrainingSessionEntity)
 @UseGuards(GqlAuthGuard, RolesGuard)
@@ -21,6 +22,20 @@ export class TrainingSessionsResolver {
   /* ===========================================================================
    * MUTATIONS
    * =========================================================================== */
+  @Mutation(() => AttendanceEntity)
+  @Roles(Role.COACH, Role.DIRECTOR)
+  async registerAttendance(
+    @Args('sessionId') sessionId: string,
+    @Args('playerId') playerId: string,
+    @Args('status') status: AttendanceStatus, // Crear este Enum en GraphQL
+  ) {
+    // Llama a un método nuevo en el servicio que haga un upsert en la tabla Attendance
+    return this.trainingSessionsService.registerAttendance(
+      sessionId,
+      playerId,
+      status,
+    );
+  }
 
   @Mutation(() => TrainingSessionEntity)
   @Roles(Role.DIRECTOR, Role.COACH)

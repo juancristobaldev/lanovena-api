@@ -243,12 +243,20 @@ model SessionExercise {
 
 model Attendance {
   id        String           @id @default(uuid())
-  sessionId String
-  session   TrainingSession  @relation(fields: [sessionId], references: [id])
-  playerId  String
-  player    Player           @relation(fields: [playerId], references: [id])
   status    AttendanceStatus
-  timestamp DateTime         @default(now())
+  notes     String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  // Relaciones
+  player    Player          @relation(fields: [playerId], references: [id])
+  playerId  String
+  
+  session   TrainingSession @relation(fields: [sessionId], references: [id])
+  sessionId String
+
+  // ⚠️ CLAVE: Esto permite buscar rápido y evitar duplicados
+  @@unique([sessionId, playerId])
 }
 
 model Evaluation {
@@ -279,9 +287,11 @@ model MonthlyFee {
   playerId String
   player   Player @relation(fields: [playerId], references: [id])
   paymentDate  DateTime? 
+  
   // --- NUEVA RELACIÓN DIRECTA (OPTIMIZACIÓN) ---
   schoolId String 
   school   School @relation(fields: [schoolId], references: [id])
+  paymentMethod String?
 
   
 

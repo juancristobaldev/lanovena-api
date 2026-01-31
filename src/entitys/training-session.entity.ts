@@ -1,5 +1,8 @@
 import { ObjectType, Field, InputType, ID, PartialType } from '@nestjs/graphql';
 import { IsArray, IsDate, IsOptional, IsString, IsUUID } from 'class-validator';
+import { CategoryEntity } from './category.entity';
+import { SessionExerciseEntity } from './session-exercise.entity';
+import { AttendanceEntity } from './attendace-session.entity';
 
 @ObjectType()
 export class TrainingSessionEntity {
@@ -14,6 +17,17 @@ export class TrainingSessionEntity {
 
   @Field(() => ID)
   categoryId: string;
+
+  @Field(() => CategoryEntity)
+  category: CategoryEntity;
+
+  // ✅ FALTA ESTO: Para pintar los ejercicios en la pantalla
+  @Field(() => [SessionExerciseEntity], { nullable: true })
+  exercises?: SessionExerciseEntity[];
+
+  // ✅ FALTA ESTO: Para saber quién ya llegó (Attendance)
+  @Field(() => [AttendanceEntity], { nullable: true })
+  attendance?: AttendanceEntity[];
 
   // Opcional: Para devolver ejercicios en la query
   // Asumiendo que existe un ExerciseEntity, usamos 'Any' o definimos un DTO simple por ahora
