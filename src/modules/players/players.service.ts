@@ -85,6 +85,14 @@ export class PlayersService {
     });
   }
 
+  async findBySchool(schoolId) {
+    return this.prisma.player.findMany({
+      where: {
+        schoolId: schoolId,
+      },
+    });
+  }
+
   async findProfile(playerId: string, user: any) {
     const player = await this.prisma.player.findUnique({
       where: { id: playerId },

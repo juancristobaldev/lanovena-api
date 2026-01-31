@@ -10,6 +10,8 @@ import { GqlAuthGuard } from 'src/auth/guards/gql-auth.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { PlayersService } from './players.service';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import { UserEntity } from 'src/entitys/user.entity';
 
 @Resolver(() => PlayerEntity)
 @UseGuards(GqlAuthGuard, RolesGuard)
@@ -22,68 +24,83 @@ export class PlayersResolver {
   @Mutation(() => PlayerEntity)
   createPlayer(
     @Args('input') input: CreatePlayerInput,
-    @Context() context: any,
+    @CurrentUser() user: UserEntity,
   ) {
-    return this.playersService.create(input, context.user);
+    return this.playersService.create(input, user);
   }
 
   @Roles(Role.DIRECTOR)
   @Mutation(() => PlayerEntity)
   updatePlayer(
-    @Args('playerId', { type: () => ID }) playerId: string,
+    @Args('playerId', { type: () => String }) playerId: string,
     @Args('input') input: UpdatePlayerInput,
-    @Context() context: any,
+    @CurrentUser() user: UserEntity,
   ) {
-    return this.playersService.update(playerId, input, context.user);
+    return this.playersService.update(playerId, input, user);
   }
 
   @Roles(Role.DIRECTOR)
   @Mutation(() => PlayerEntity)
   togglePlayerActive(
-    @Args('playerId', { type: () => ID }) playerId: string,
-    @Context() context: any,
+    @Args('playerId', { type: () => String }) playerId: string,
+    @CurrentUser() user: UserEntity,
   ) {
-    return this.playersService.toggleActive(playerId, context.user);
+    return this.playersService.toggleActive(playerId, user);
   }
 
   /* ===================== QUERIES ===================== */
+  @Query(() => [PlayerEntity])
+  playersBySchool(
+    @Args('schoolId', { type: () => String, nullable: true }) schoolId: string,
+    @CurrentUser() user: UserEntity,
+  ) {
+    // Si es SuperAdmin y envía ID, usa ese. Si es Director, fuerza su propio ID.
+    const targetSchoolId =
+      (user.role === 'SUPERADMIN' || user?.role === 'DIRECTOR') && schoolId
+        ? schoolId
+        : user.schoolId;
+
+    return this.playersService.findBySchool(targetSchoolId);
+    // NOTA: Asegúrate de tener este método en playersService que haga:
+    // prisma.player.findMany({ where: { schoolId } })
+  }
 
   @Roles(Role.COACH)
   @Query(() => [PlayerEntity])
   playersByCategory(
-    @Args('categoryId', { type: () => ID }) categoryId: string,
-    @Context() context: any,
+    @Args('categoryId', { type: () => String }) categoryId: string,
+    @CurrentUser() user: UserEntity,
   ) {
-    return this.playersService.findByCategory(
-      categoryId,
-      context.user.schoolId,
-    );
+    if (!user.schoolId) return;
+    return this.playersService.findByCategory(categoryId, user.schoolId);
   }
 
   @Roles(Role.GUARDIAN)
   @Query(() => [PlayerEntity])
   playersByGuardian(
-    @Args('guardianId', { type: () => ID }) guardianId: string,
-    @Context() context: any,
+    @Args('guardianId', { type: () => String }) guardianId: string,
+    @CurrentUser() user: UserEntity,
   ) {
-    return this.playersService.findByGuardian(guardianId, context.user);
+    return this.playersService.findByGuardian(guardianId, user);
   }
 
   @Roles(Role.GUARDIAN)
   @Query(() => PlayerEntity)
   playerProfile(
-    @Args('playerId', { type: () => ID }) playerId: string,
-    @Context() context: any,
+    @Args('playerId', { type: () => String }) playerId: string,
+    @CurrentUser() user: UserEntity,
   ) {
-    return this.playersService.findProfile(playerId, context.user);
+    return this.playersService.findProfile(playerId, user);
   }
 
   @Roles(Role.COACH)
   @Query(() => PlayerEntity)
   scanQrPlayer(
     @Args('qrCodeToken') qrCodeToken: string,
-    @Context() context: any,
+    @CurrentUser() user: UserEntity,
   ) {
-    return this.playersService.scanQr(qrCodeToken, context.user.schoolId);
+    if (!user.schoolId) return;
+
+    return this.playersService.scanQr(qrCodeToken, user.schoolId);
   }
 }

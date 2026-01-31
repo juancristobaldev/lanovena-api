@@ -2,6 +2,27 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+type CategoryEntity {
+  id: ID!
+  name: String!
+  type: CategoryType!
+  schoolId: String!
+}
+
+"""Tipo de categoría: FORMATIVA o SELECTIVA"""
+enum CategoryType {
+  FORMATIVA
+  SELECTIVA
+}
+
+type CoachEntity {
+  id: ID!
+  userId: String!
+  user: UserEntity!
+  bio: String
+  categories: [CategoryEntity!]
+}
+
 type UserEntity {
   id: ID!
   email: String!
@@ -14,6 +35,7 @@ type UserEntity {
   schools: [SchoolStaff!]
   createdAt: DateTime!
   updatedAt: DateTime!
+  coachProfile: CoachEntity
 }
 
 enum UserRole {
@@ -114,6 +136,8 @@ type PlayerEntity {
   scholarship: Boolean!
   qrCodeToken: String!
   categoryId: ID!
+  category: CategoryEntity!
+  guardian: UserEntity!
   guardianId: ID!
 }
 
@@ -262,19 +286,23 @@ type TacticalBoard {
 
 type Query {
   schools(mode: SchoolMode): [SchoolEntity!]!
+  schoolsByDirector: [SchoolEntity!]!
   schoolById(schoolId: ID!): SchoolEntity!
   schoolBySlug(slug: String!): SchoolEntity!
   mySchool: SchoolEntity!
+  guardiansBySchool(schoolId: String): [UserEntity!]!
+  usersByRole(role: UserRole!, schoolId: String!): [UserEntity!]!
   users: [UserEntity!]!
 
   """Retorna el usuario actualmente autenticado (Perfil)"""
   me: UserEntity!
   userById(userId: ID!): UserEntity!
-  coaches: [UserEntity!]!
-  guardians: [UserEntity!]!
-  playersByCategory(categoryId: ID!): [PlayerEntity!]!
-  playersByGuardian(guardianId: ID!): [PlayerEntity!]!
-  playerProfile(playerId: ID!): PlayerEntity!
+  coaches(schoolId: ID): [UserEntity!]!
+  guardians(schoolId: ID): [UserEntity!]!
+  playersBySchool(schoolId: String): [PlayerEntity!]!
+  playersByCategory(categoryId: String!): [PlayerEntity!]!
+  playersByGuardian(guardianId: String!): [PlayerEntity!]!
+  playerProfile(playerId: String!): PlayerEntity!
   scanQrPlayer(qrCodeToken: String!): PlayerEntity!
   trainingSessionsByCategory(categoryId: ID!): [TrainingSessionEntity!]!
   trainingSession(sessionId: ID!): TrainingSessionEntity!
@@ -292,6 +320,8 @@ type Query {
 
   """Pizarras creadas por el usuario actual"""
   myTacticalBoards: [TacticalBoard!]!
+  categories(schoolId: String): [CategoryEntity!]!
+  category(id: String!): CategoryEntity!
 }
 
 type Mutation {
@@ -305,9 +335,11 @@ type Mutation {
   createUser(input: CreateUserInput!): UserEntity!
   updateUser(userId: ID!, input: UpdateUserInput!): UserEntity!
   deactivateUser(userId: ID!): Boolean!
+  createGuardian(input: CreateUserInput!): UserEntity!
+  assignCategoriesToCoach(userId: String!, categoryIds: [String!]!): CoachEntity!
   createPlayer(input: CreatePlayerInput!): PlayerEntity!
-  updatePlayer(playerId: ID!, input: UpdatePlayerInput!): PlayerEntity!
-  togglePlayerActive(playerId: ID!): PlayerEntity!
+  updatePlayer(playerId: String!, input: UpdatePlayerInput!): PlayerEntity!
+  togglePlayerActive(playerId: String!): PlayerEntity!
   createTrainingSession(input: CreateTrainingSessionInput!): TrainingSessionEntity!
   updateTrainingSession(sessionId: ID!, input: UpdateTrainingSessionInput!): TrainingSessionEntity!
   removeTrainingSession(sessionId: ID!): Boolean!
@@ -335,6 +367,9 @@ type Mutation {
   saveTacticalBoard(input: CreateTacticalBoardInput!): TacticalBoard!
   updateTacticalBoard(input: UpdateTacticalBoardInput!): TacticalBoard!
   deleteTacticalBoard(id: ID!): TacticalBoard!
+  createCategory(input: CreateCategoryInput!): CategoryEntity!
+  updateCategory(id: String!, input: UpdateCategoryInput!): CategoryEntity!
+  removeCategory(id: String!): CategoryEntity!
 }
 
 input CreateSchoolInput {
@@ -502,4 +537,15 @@ input UpdateTacticalBoardInput {
   id: ID!
   title: String
   configurationJson: String
+}
+
+input CreateCategoryInput {
+  name: String!
+  type: CategoryType! = FORMATIVA
+  schoolId: String!
+}
+
+input UpdateCategoryInput {
+  name: String
+  type: CategoryType
 }

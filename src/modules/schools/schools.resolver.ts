@@ -128,6 +128,11 @@ export class SchoolsResolver {
     return this.schoolsService.findAll({ mode });
   }
 
+  @Query(() => [SchoolEntity])
+  @Roles(Role.DIRECTOR)
+  schoolsByDirector(@CurrentUser() user: User) {
+    return this.schoolsService.findAllByDirector(user?.id);
+  }
   /**
    * Obtener escuela por ID
    * Director (su escuela) o SuperAdmin

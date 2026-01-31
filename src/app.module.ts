@@ -18,6 +18,7 @@ import { TasksService } from './modules/tasks/tasks.service';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { join } from 'path';
+import { CategoriesModule } from './modules/categories/categories.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { join } from 'path';
     OperationsModule,
     NotificationsModule,
     FlowModule,
+    CategoriesModule,
   ],
   controllers: [AppController],
   providers: [AppService, TasksService],

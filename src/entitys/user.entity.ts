@@ -17,6 +17,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { SchoolEntity, SchoolStaff } from './school.entity';
+import { CoachEntity } from './coach.entity';
 
 // Registrar Enum Role
 registerEnumType(Role, { name: 'UserRole' }); // "Role" a veces da conflicto, mejor UserRole
@@ -58,6 +59,8 @@ export class UserEntity {
 
   @Field(() => Date)
   updatedAt: Date;
+  @Field(() => CoachEntity, { nullable: true })
+  coachProfile?: CoachEntity;
 }
 
 @InputType()

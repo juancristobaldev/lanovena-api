@@ -6,6 +6,8 @@ import {
   IsString,
   IsUUID,
 } from 'class-validator';
+import { CategoryEntity } from './category.entity';
+import { UserEntity } from './user.entity';
 
 @ObjectType()
 export class PlayerEntity {
@@ -39,6 +41,11 @@ export class PlayerEntity {
   @Field(() => ID)
   categoryId: string;
 
+  @Field(() => CategoryEntity)
+  category: CategoryEntity;
+
+  @Field(() => UserEntity)
+  guardian: UserEntity;
   @Field(() => ID)
   guardianId: string;
 }

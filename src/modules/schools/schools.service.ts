@@ -43,7 +43,27 @@ export class SchoolsService {
   // ===========================================================================
   // 2. READ (Consultas)
   // ===========================================================================
-
+  async findAllByDirector(directorId: any): Promise<School[]> {
+    return this.prisma.school.findMany({
+      where: {
+        staff: {
+          some: {
+            userId: directorId,
+          },
+        },
+      },
+      include: {
+        _count: {
+          select: {
+            players: true, // Cuántos alumnos tiene
+            users: true, // Cuántos miembros del staff
+            categories: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
   // Obtener todos los tenants (Vista SuperAdmin "Águila")
   // Incluye conteo de jugadores y usuarios para el Dashboard.
   async findAll(params?: { mode?: SchoolMode }): Promise<School[]> {
