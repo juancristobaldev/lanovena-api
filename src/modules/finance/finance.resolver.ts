@@ -1,11 +1,23 @@
-import { Resolver, Mutation, Query, Args, ID, Context } from '@nestjs/graphql';
-import { UseGuards } from '@nestjs/common';
-import { FinanceService } from './finance.service';
-import { MonthlyFeeEntity } from 'src/entitys/monthly-fee.entity';
+import {
+  Resolver,
+  Query,
+  Mutation,
+  Args,
+  Int,
+  Context,
+  ID,
+} from '@nestjs/graphql';
+import { UseGuards, ForbiddenException } from '@nestjs/common';
 import { GqlAuthGuard } from 'src/auth/guards/gql-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
-import { Role } from '@prisma/client';
+import { Role, PaymentStatus } from '@prisma/client';
+import { FinanceService } from './finance.service';
+import {
+  MonthlyFeeEntity,
+  FinanceSummary,
+  MarkFeeAsPaidInput,
+} from 'src/entitys/monthly-fee.entity';
 
 @Resolver(() => MonthlyFeeEntity)
 @UseGuards(GqlAuthGuard, RolesGuard)
@@ -13,64 +25,83 @@ export class FinanceResolver {
   constructor(private readonly financeService: FinanceService) {}
 
   /* ===========================================================================
-   * MUTATIONS (ADMINISTRACIÓN)
+   * QUERIES (Lectura)
    * =========================================================================== */
 
-  @Roles(Role.DIRECTOR)
-  @Mutation(() => MonthlyFeeEntity)
-  createMonthlyFee(
-    @Args('playerId', { type: () => ID }) playerId: string,
-    @Args('amount') amount: number,
-    @Args('month') month: number,
-    @Args('year') year: number,
-    @Args('dueDate') dueDate: Date,
+  @Query(() => FinanceSummary)
+  @Roles(Role.DIRECTOR, Role.SUPERADMIN)
+  async financeSummary(
+    @Args('schoolId', { type: () => ID }) schoolId: string,
+    @Args('month', { type: () => Int }) month: number,
+    @Args('year', { type: () => Int }) year: number,
     @Context() context: any,
   ) {
-    return this.financeService.createMonthlyFee(
-      playerId,
-      amount,
-      month,
-      year,
-      dueDate,
-      context.user,
-    );
+    this.validateAccess(context.user, schoolId);
+    return this.financeService.getFinancialSummary(schoolId, month, year);
   }
 
-  @Roles(Role.DIRECTOR)
-  @Mutation(() => MonthlyFeeEntity)
-  markFeeAsPaid(
-    @Args('feeId', { type: () => ID }) feeId: string,
-    @Args('receiptUrl', { nullable: true }) receiptUrl: string,
+  @Query(() => [MonthlyFeeEntity])
+  @Roles(Role.DIRECTOR, Role.SUPERADMIN)
+  async monthlyFees(
+    @Args('schoolId', { type: () => ID }) schoolId: string,
+    @Args('month', { type: () => Int }) month: number,
+    @Args('year', { type: () => Int }) year: number,
+    @Args('status', { type: () => PaymentStatus, nullable: true })
+    status: PaymentStatus,
     @Context() context: any,
   ) {
-    return this.financeService.markAsPaid(feeId, receiptUrl, context.user);
-  }
-
-  @Roles(Role.DIRECTOR)
-  @Mutation(() => MonthlyFeeEntity)
-  waiveMonthlyFee(
-    @Args('feeId', { type: () => ID }) feeId: string,
-    @Context() context: any,
-  ) {
-    return this.financeService.waiveFee(feeId, context.user);
+    this.validateAccess(context.user, schoolId);
+    return this.financeService.findAllFees(schoolId, month, year, status);
   }
 
   /* ===========================================================================
-   * QUERIES
+   * MUTATIONS (Escritura)
    * =========================================================================== */
 
-  @Roles(Role.GUARDIAN)
-  @Query(() => [MonthlyFeeEntity])
-  monthlyFeesByPlayer(
-    @Args('playerId', { type: () => ID }) playerId: string,
+  @Mutation(() => MonthlyFeeEntity)
+  @Roles(Role.DIRECTOR, Role.SUPERADMIN)
+  async markFeeAsPaid(
+    @Args('input') input: MarkFeeAsPaidInput,
     @Context() context: any,
   ) {
-    return this.financeService.feesByPlayer(playerId, context.user);
+    // Pasamos el schoolId del usuario para validación interna en el servicio
+    const userSchoolId =
+      context.user.role === Role.SUPERADMIN ? undefined : context.user.schoolId;
+    return this.financeService.markAsPaid(
+      input.feeId,
+      input.paymentMethod,
+      userSchoolId,
+    );
   }
 
-  @Roles(Role.DIRECTOR)
-  @Query(() => [MonthlyFeeEntity])
-  monthlyFeesBySchool(@Context() context: any) {
-    return this.financeService.feesBySchool(context.user.schoolId);
+  /* ===========================================================================
+   * HELPERS
+   * =========================================================================== */
+
+  /**
+   * Valida que un Director solo vea su propia escuela.
+   * El SuperAdmin puede ver cualquiera.
+   */
+  private validateAccess(user: any, targetSchoolId: string) {
+    if (user.role === Role.SUPERADMIN) return;
+
+    // Si el usuario tiene múltiples escuelas (user.schools), verificar si targetSchoolId está en ellas
+    if (user.schools && Array.isArray(user.schools)) {
+      const hasAccess = user.schools.some(
+        (s: any) => s.id === targetSchoolId || s.schoolId === targetSchoolId,
+      );
+      if (!hasAccess)
+        throw new ForbiddenException(
+          'No tienes acceso a las finanzas de esta escuela',
+        );
+      return;
+    }
+
+    // Fallback: Si el usuario tiene una sola escuela asignada directamente
+    if (user.schoolId && user.schoolId !== targetSchoolId) {
+      throw new ForbiddenException(
+        'No tienes acceso a las finanzas de esta escuela',
+      );
+    }
   }
 }

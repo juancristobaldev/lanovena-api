@@ -1,140 +1,178 @@
 import {
   Injectable,
   NotFoundException,
-  ForbiddenException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { PaymentStatus, Role } from '@prisma/client';
+import { FinanceSummary, PaymentMethod } from 'src/entitys/monthly-fee.entity';
+import { PaymentStatus } from '@prisma/client';
 
 @Injectable()
 export class FinanceService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /* ===========================================================================
-   * CREAR CUOTA MENSUAL
-   * =========================================================================== */
-
-  async createMonthlyFee(
-    playerId: string,
-    amount: number,
+  /**
+   * KPI: Resumen Financiero del Mes
+   * Calcula cuánto se ha recaudado, cuánto falta y la efectividad.
+   */
+  async getFinancialSummary(
+    schoolId: string,
     month: number,
     year: number,
-    dueDate: Date,
-    user: any,
+  ): Promise<FinanceSummary> {
+    // Agrupación nativa de base de datos (Muy rápido gracias al index schoolId)
+    const groups = await this.prisma.monthlyFee.groupBy({
+      by: ['status'],
+      where: {
+        schoolId,
+        month,
+        year,
+      },
+      _sum: {
+        amount: true,
+      },
+    });
+
+    // Inicializar contadores
+    let totalCollected = 0;
+    let totalPending = 0;
+    let totalOverdue = 0;
+
+    // Procesar resultados
+    groups.forEach((g) => {
+      const amount = g._sum.amount || 0;
+      switch (g.status) {
+        case PaymentStatus.PAID:
+          totalCollected += amount;
+          break;
+        case PaymentStatus.PENDING:
+          totalPending += amount;
+          break;
+        case PaymentStatus.OVERDUE:
+          totalOverdue += amount;
+          break;
+        // WAIVED (Becados) no suma al total esperado financiero generalmente
+      }
+    });
+
+    const expectedTotal = totalCollected + totalPending + totalOverdue;
+    const collectionRate =
+      expectedTotal > 0 ? (totalCollected / expectedTotal) * 100 : 0;
+
+    return {
+      totalCollected,
+      totalPending,
+      totalOverdue,
+      expectedTotal,
+      collectionRate: parseFloat(collectionRate.toFixed(1)), // Redondear a 1 decimal
+    };
+  }
+
+  /**
+   * Listar Mensualidades (Tabla de Gestión)
+   * Permite filtrar por estado (ej: ver solo morosos)
+   */
+  async findAllFees(
+    schoolId: string,
+    month: number,
+    year: number,
+    status?: PaymentStatus,
   ) {
-    const player = await this.prisma.player.findUnique({
-      where: { id: playerId },
+    return this.prisma.monthlyFee.findMany({
+      where: {
+        schoolId,
+        month,
+        year,
+        ...(status ? { status } : {}),
+      },
+      include: {
+        // Incluimos datos del jugador y su categoría para mostrar en la tabla
+        player: {
+          include: {
+            category: true,
+          },
+        },
+      },
+      orderBy: [
+        { status: 'asc' }, // Primero PENDING/OVERDUE para priorizar cobranza
+        { player: { lastName: 'asc' } },
+      ],
+    });
+  }
+
+  /**
+   * Marcar una mensualidad como PAGADA (Gestión Manual del Director)
+   */
+  async markAsPaid(
+    feeId: string,
+    paymentMethod: PaymentMethod,
+    userSchoolId?: string,
+  ) {
+    // 1. Buscar la cuota
+    const fee = await this.prisma.monthlyFee.findUnique({
+      where: { id: feeId },
     });
 
-    if (!player) throw new NotFoundException('Jugador no encontrado');
+    if (!fee) throw new NotFoundException('El cobro no existe');
 
-    if (player.schoolId !== user.schoolId) {
-      throw new ForbiddenException('Acceso denegado');
-    }
-
-    // Evitar cuotas duplicadas
-    const existing = await this.prisma.monthlyFee.findFirst({
-      where: { playerId, month, year },
-    });
-
-    if (existing) {
-      throw new BadRequestException(
-        'La cuota mensual ya existe para este periodo',
+    // 2. Seguridad: Verificar que pertenezca a la escuela del usuario (si se provee schoolId)
+    // Esto evita que un Director pague la cuota de otra escuela por error/malicia
+    if (userSchoolId && fee.schoolId !== userSchoolId) {
+      throw new ForbiddenException(
+        'No tienes permisos para gestionar pagos de esta escuela',
       );
     }
 
-    return this.prisma.monthlyFee.create({
-      data: {
-        playerId,
-        amount,
-        month,
-        year,
-        dueDate,
-        status: PaymentStatus.PENDING,
-      },
-    });
-  }
-
-  /* ===========================================================================
-   * READ
-   * =========================================================================== */
-
-  async feesByPlayer(playerId: string, user: any) {
-    const player = await this.prisma.player.findUnique({
-      where: { id: playerId },
-    });
-
-    if (!player) throw new NotFoundException('Jugador no encontrado');
-
-    if (
-      player.schoolId !== user.schoolId ||
-      (user.role === Role.GUARDIAN && player.guardianId !== user.id)
-    ) {
-      throw new ForbiddenException('Acceso denegado');
+    if (fee.status === PaymentStatus.PAID) {
+      throw new BadRequestException('Esta mensualidad ya está pagada');
     }
 
-    return this.prisma.monthlyFee.findMany({
-      where: { playerId },
-      orderBy: [{ year: 'desc' }, { month: 'desc' }],
-    });
-  }
-
-  async feesBySchool(schoolId: string) {
-    return this.prisma.monthlyFee.findMany({
-      where: {
-        player: { schoolId },
-      },
-      include: {
-        player: true,
-      },
-      orderBy: [{ year: 'desc' }, { month: 'desc' }],
-    });
-  }
-
-  /* ===========================================================================
-   * UPDATE
-   * =========================================================================== */
-
-  async markAsPaid(feeId: string, receiptUrl: string | null, user: any) {
-    const fee = await this.prisma.monthlyFee.findUnique({
-      where: { id: feeId },
-      include: { player: true },
-    });
-
-    if (!fee) throw new NotFoundException('Cuota no encontrada');
-
-    if (fee.player.schoolId !== user.schoolId) {
-      throw new ForbiddenException('Acceso denegado');
-    }
-
+    // 3. Actualizar estado
     return this.prisma.monthlyFee.update({
       where: { id: feeId },
       data: {
         status: PaymentStatus.PAID,
-        paidAt: new Date(),
-        receiptUrl,
+        paymentDate: new Date(),
+        paymentMethod: paymentMethod,
+      },
+      include: {
+        player: true,
       },
     });
   }
 
-  async waiveFee(feeId: string, user: any) {
-    const fee = await this.prisma.monthlyFee.findUnique({
-      where: { id: feeId },
-      include: { player: true },
+  /**
+   * Utilidad: Generar cobros masivos para un mes (Para ejecutar el día 1 del mes)
+   * Nota: Esto usualmente se llama desde un Cron Job o un botón "Generar Periodo"
+   */
+  async generateFeesForMonth(
+    schoolId: string,
+    month: number,
+    year: number,
+    baseAmount: number,
+  ) {
+    // Obtener jugadores activos de la escuela
+    const activePlayers = await this.prisma.player.findMany({
+      where: { schoolId, active: true, scholarship: false }, // Excluir becados
     });
 
-    if (!fee) throw new NotFoundException('Cuota no encontrada');
+    const dueDate = new Date(year, month - 1, 5); // Vence el día 5 del mes
 
-    if (fee.player.schoolId !== user.schoolId) {
-      throw new ForbiddenException('Acceso denegado');
-    }
+    const transactions = activePlayers.map((player) =>
+      this.prisma.monthlyFee.create({
+        data: {
+          month,
+          year,
+          amount: baseAmount,
+          dueDate,
+          status: PaymentStatus.PENDING,
+          schoolId,
+          playerId: player.id,
+        },
+      }),
+    );
 
-    return this.prisma.monthlyFee.update({
-      where: { id: feeId },
-      data: {
-        status: PaymentStatus.WAIVED,
-      },
-    });
+    return this.prisma.$transaction(transactions);
   }
 }

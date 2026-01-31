@@ -150,23 +150,28 @@ type TrainingSessionEntity {
 
 type MonthlyFeeEntity {
   id: ID!
-
-  """Mes numérico (1-12)"""
-  month: Int!
-  year: Int!
   amount: Float!
-  status: PaymentStatus!
   dueDate: DateTime!
-  paidAt: DateTime
-  receiptUrl: String
-  playerId: ID!
+  paymentDate: DateTime
+  status: FeeStatus!
+  paymentMethod: PaymentMethod
+  month: Float!
+  year: Float!
+  player: PlayerEntity!
 }
 
-enum PaymentStatus {
+enum FeeStatus {
   PENDING
   PAID
   OVERDUE
   WAIVED
+}
+
+enum PaymentMethod {
+  CASH
+  TRANSFER
+  DEBIT
+  CREDIT
 }
 
 type ProductEntity {

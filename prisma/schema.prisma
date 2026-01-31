@@ -127,8 +127,11 @@ model School {
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 
+
   staff SchoolStaff[] // 👈 directores, coaches, etc.
 
+
+  monthlyFees MonthlyFee[]
   // --- NUEVAS RELACIONES ---
   // Growth Hacking: Sistema de Referidos
   referralsSent     Referral[]    @relation("SchoolReferrer")
@@ -143,6 +146,8 @@ model School {
   // Gestión Interna
   tasks             Task[]
 }
+
+
 
 model Category {
   id       String       @id @default(uuid())
@@ -271,9 +276,14 @@ model MonthlyFee {
   status  PaymentStatus @default(PENDING)
   dueDate DateTime
   paidAt  DateTime?
-
   playerId String
   player   Player @relation(fields: [playerId], references: [id])
+  paymentDate  DateTime? 
+  // --- NUEVA RELACIÓN DIRECTA (OPTIMIZACIÓN) ---
+  schoolId String 
+  school   School @relation(fields: [schoolId], references: [id])
+
+  
 
   receiptUrl String?
 }
