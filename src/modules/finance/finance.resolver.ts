@@ -18,6 +18,7 @@ import {
   FinanceSummary,
   MarkFeeAsPaidInput,
 } from 'src/entitys/monthly-fee.entity';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 
 @Resolver(() => MonthlyFeeEntity)
 @UseGuards(GqlAuthGuard, RolesGuard)
@@ -34,9 +35,9 @@ export class FinanceResolver {
     @Args('schoolId', { type: () => ID }) schoolId: string,
     @Args('month', { type: () => Int }) month: number,
     @Args('year', { type: () => Int }) year: number,
-    @Context() context: any,
+    @CurrentUser() user: any,
   ) {
-    this.validateAccess(context.user, schoolId);
+    this.validateAccess(user, schoolId);
     return this.financeService.getFinancialSummary(schoolId, month, year);
   }
 
@@ -48,9 +49,9 @@ export class FinanceResolver {
     @Args('year', { type: () => Int }) year: number,
     @Args('status', { type: () => PaymentStatus, nullable: true })
     status: PaymentStatus,
-    @Context() context: any,
+    @CurrentUser() user: any,
   ) {
-    this.validateAccess(context.user, schoolId);
+    this.validateAccess(user, schoolId);
     return this.financeService.findAllFees(schoolId, month, year, status);
   }
 
@@ -62,11 +63,11 @@ export class FinanceResolver {
   @Roles(Role.DIRECTOR, Role.SUPERADMIN)
   async markFeeAsPaid(
     @Args('input') input: MarkFeeAsPaidInput,
-    @Context() context: any,
+    @CurrentUser() user: any,
   ) {
     // Pasamos el schoolId del usuario para validación interna en el servicio
     const userSchoolId =
-      context.user.role === Role.SUPERADMIN ? undefined : context.user.schoolId;
+      user.role === Role.SUPERADMIN ? undefined : user.schoolId;
     return this.financeService.markAsPaid(
       input.feeId,
       input.paymentMethod,

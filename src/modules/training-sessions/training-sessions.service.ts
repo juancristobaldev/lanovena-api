@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AttendanceStatus, Prisma } from '@prisma/client';
+import { CreateTrainingSessionInput } from 'src/entitys/training-session.entity';
 
 @Injectable()
 export class TrainingSessionsService {
@@ -44,14 +45,28 @@ export class TrainingSessionsService {
    * CREATE
    * =========================================================================== */
 
-  async create(
-    data: Prisma.TrainingSessionCreateInput,
-    user: { schoolId: string },
-  ) {
+  async create(data: CreateTrainingSessionInput) {
+    const newData: any = { ...data };
+
+    delete newData.exerciseIds;
+    delete newData.categoryId;
     return this.prisma.trainingSession.create({
       data: {
-        ...data,
-        category: data.category,
+        ...newData,
+        category: {
+          connect: {
+            id: data.categoryId,
+          },
+        },
+        exercises: {
+          createMany: {
+            data:
+              data.exerciseIds?.map((exerciseId, index) => ({
+                exerciseId,
+                orderIndex: index,
+              })) || [],
+          },
+        },
       },
     });
   }

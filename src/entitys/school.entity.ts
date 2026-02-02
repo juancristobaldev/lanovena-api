@@ -57,6 +57,21 @@ export class Benefit {
 }
 
 @ObjectType()
+export class CountSchool {
+  @Field(() => Int)
+  players: number;
+
+  @Field(() => Int)
+  categories: number;
+
+  @Field(() => Int)
+  coaches: number;
+
+  @Field(() => Int)
+  guardians: number;
+}
+
+@ObjectType()
 export class SchoolEntity {
   @Field(() => ID)
   id: string;
@@ -96,6 +111,9 @@ export class SchoolEntity {
     description: 'Lista de beneficios (Solo Modo Institucional)',
   })
   benefits?: Benefit[];
+
+  @Field(() => CountSchool)
+  _count: CountSchool;
 }
 
 // src/graphql/entities/school-staff.entity.ts

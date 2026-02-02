@@ -9,6 +9,11 @@ datasource db {
 }
 
 // 2. ENUMS (DEFINICIONES ESTÁTICAS DEL NEGOCIO)
+enum ExerciseDifficulty {
+  BASIC
+  INTERMEDIATE
+  ADVANCED
+}
 
 enum Role {
   SUPERADMIN
@@ -98,8 +103,8 @@ model User {
   schoolId  String?
   school    School?  @relation(fields: [schoolId], references: [id])
 
-
-  schools SchoolStaff[] // 👈 relación múltiple
+  strategys     Strategy[]    // Estrategias creadas por el entrenador
+  schools        SchoolStaff[] // 👈 relación múltiple
   managedPlayers Player[]       @relation("GuardianPlayers")
   coachProfile   Coach?
   notifications  Notification[]
@@ -127,11 +132,10 @@ model School {
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 
-
   staff SchoolStaff[] // 👈 directores, coaches, etc.
 
-
   monthlyFees MonthlyFee[]
+  
   // --- NUEVAS RELACIONES ---
   // Growth Hacking: Sistema de Referidos
   referralsSent     Referral[]    @relation("SchoolReferrer")
@@ -147,8 +151,6 @@ model School {
   tasks             Task[]
 }
 
-
-
 model Category {
   id       String       @id @default(uuid())
   name     String
@@ -159,6 +161,7 @@ model Category {
   players  Player[]
   coaches  Coach[]           @relation("CoachCategories")
   sessions TrainingSession[]
+  matches  Match[]           // Relación con Partidos
 }
 
 model Player {
@@ -183,6 +186,7 @@ model Player {
   attendance      Attendance[]
   evaluations     Evaluation[]
   monthlyPayments MonthlyFee[]
+  matchStats      MatchStat[]    // Relación con Estadísticas de Partidos
 
   createdAt DateTime @default(now())
 }
@@ -205,20 +209,42 @@ model Exercise {
   id          String   @id @default(uuid())
   title       String
   description String   @db.Text
+  
+  // === NUEVOS CAMPOS ===
+  objective   String?             // Ej: "Mejorar control orientado"
+  difficulty  ExerciseDifficulty  @default(BASIC) // BASIC, INTERMEDIATE, ADVANCED
+  
+  // Multimedia
   videoUrl    String?
   imageUrl    String?
-  isGlobal    Boolean  @default(false)
 
-  schoolId String?
-  school   School? @relation(fields: [schoolId], references: [id])
+  // === VISIBILIDAD Y PERMISOS ===
+  isGlobal    Boolean  @default(false) // Si es TRUE, es un ejercicio del sistema (La Novena) para todos.
 
-  tags String[]
+  // Relación con Escuela (Opcional si es global)
+  schoolId    String?
+  school      School?  @relation(fields: [schoolId], references: [id])
 
+  // Auditoría: Quién lo creó (Director o Entrenador)
+  authorId    String?  
+  // Si tienes un modelo User, podrías descomentar esto:
+  // author    User?    @relation(fields: [authorId], references: [id])
+
+  // Etiquetas (ej: ["Físico", "Táctico", "Sub-12"])
+  tags        String[]
+
+  // Relación con las sesiones de entrenamiento
   sessionItems SessionExercise[]
+
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model TrainingSession {
   id         String   @id @default(uuid())
+  title     String?
+  location  String?
   date       DateTime
   notes      String?
   categoryId String
@@ -229,6 +255,9 @@ model TrainingSession {
 
   // --- NUEVAS RELACIONES ---
   tacticalBoards TacticalBoard[] // Pizarras usadas en esta sesión
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime? @updatedAt 
 }
 
 model SessionExercise {
@@ -259,6 +288,37 @@ model Attendance {
   @@unique([sessionId, playerId])
 }
 
+// --- MÓDULO DE PARTIDOS (MATCHES) ---
+
+model Match {
+  id        String   @id @default(uuid())
+  rivalName String
+  date      DateTime
+  isHome    Boolean  @default(true)
+  location  String?
+    notes String?
+  // Relación con categoría
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  // Relación con estadísticas
+  stats      MatchStat[]
+}
+
+model MatchStat {
+  id        String @id @default(uuid())
+  goals     Int    @default(0)
+  assists   Int    @default(0)
+  
+  matchId   String
+  match     Match  @relation(fields: [matchId], references: [id])
+  
+  playerId  String
+  player    Player @relation(fields: [playerId], references: [id])
+}
+
+// --- FIN MÓDULO PARTIDOS ---
+
 model Evaluation {
   id    String   @id @default(uuid())
   date  DateTime
@@ -272,6 +332,28 @@ model Evaluation {
   // --- NUEVAS RELACIONES ---
   testProtocolId String?       
   testProtocol   TestProtocol? @relation(fields: [testProtocolId], references: [id]) // Vinculación a baremos oficiales
+}
+
+model Strategy {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relación con el creador (Entrenador)
+  coachId     String
+  coach       User     @relation(fields: [coachId], references: [id])
+
+  // DATOS DE LA PIZARRA
+  // Guardamos las posiciones de las fichas como un JSON
+  tokens      Json     
+  
+  // Guardamos las líneas dibujadas. 
+  // Opción A: Base64 String (Fácil, pero ocupa espacio en DB).
+  // Opción B: Array de coordenadas (Más optimizado, más difícil de programar).
+  // Usaremos Opción A por simplicidad ahora:
+  drawingData String?  @db.Text 
 }
 
 // 5. MÓDULO COMERCIAL
@@ -292,8 +374,6 @@ model MonthlyFee {
   schoolId String 
   school   School @relation(fields: [schoolId], references: [id])
   paymentMethod String?
-
-  
 
   receiptUrl String?
 }

@@ -22,11 +22,15 @@ import { GqlAuthGuard } from 'src/auth/guards/gql-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { SchoolsService } from './schools.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Resolver(() => SchoolEntity)
 @UseGuards(GqlAuthGuard, RolesGuard)
 export class SchoolsResolver {
-  constructor(private readonly schoolsService: SchoolsService) {}
+  constructor(
+    private readonly schoolsService: SchoolsService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   /* ===========================================================================
    *  MUTATIONS
@@ -139,15 +143,22 @@ export class SchoolsResolver {
    */
   @Query(() => SchoolEntity)
   @Roles(Role.DIRECTOR)
-  schoolById(
+  async schoolById(
     @Args('schoolId', { type: () => ID }) schoolId: string,
     @CurrentUser() user: any,
   ) {
-    if (user.role !== Role.SUPERADMIN && user.schoolId !== schoolId) {
+    const staff = await this.prisma.schoolStaff.findFirst({
+      where: {
+        schoolId,
+        userId: user.id,
+      },
+    });
+
+    if (!staff) {
       throw new Error('Acceso denegado');
     }
 
-    return this.schoolsService.findOne(schoolId);
+    return await this.schoolsService.findOne(schoolId);
   }
 
   /**

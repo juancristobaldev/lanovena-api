@@ -6,7 +6,11 @@ import {
 } from '@nestjs/common';
 import { Prisma, School, SchoolMode, PlanType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateBenefitInput, ResourceUsage } from 'src/entitys/school.entity';
+import {
+  CreateBenefitInput,
+  ResourceUsage,
+  SchoolEntity,
+} from 'src/entitys/school.entity';
 
 @Injectable()
 export class SchoolsService {
@@ -85,11 +89,34 @@ export class SchoolsService {
   }
 
   // Obtener una escuela específica por ID
-  async findOne(id: string): Promise<School> {
+  async findOne(id: string): Promise<SchoolEntity> {
     const school = await this.prisma.school.findUnique({
       where: { id },
       include: {
         categories: true, // Útil para el onboarding del Director
+        _count: {
+          select: {
+            players: true,
+            categories: true,
+          },
+        },
+      },
+    });
+
+    const coaches = await this.prisma.coach.count({
+      where: {
+        categories: {
+          some: {
+            schoolId: id,
+          },
+        },
+      },
+    });
+
+    const users = await this.prisma.user.count({
+      where: {
+        role: 'GUARDIAN',
+        schoolId: id,
       },
     });
 
@@ -97,7 +124,17 @@ export class SchoolsService {
       throw new NotFoundException(`La escuela con ID ${id} no existe.`);
     }
 
-    return school;
+    return {
+      ...school,
+      bankDetails: undefined,
+      logoUrl: school.logoUrl || '',
+      _count: {
+        coaches,
+        players: school._count.players,
+        categories: school._count.categories,
+        guardians: users,
+      },
+    };
   }
 
   // Obtener una escuela por Slug (Para resolver la URL pública o del portal)

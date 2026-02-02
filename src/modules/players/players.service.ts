@@ -17,14 +17,20 @@ export class PlayersService {
   /* ===================== MUTATIONS ===================== */
 
   async create(input: CreatePlayerInput, user: any) {
-    if (!user.schoolId) {
-      throw new ForbiddenException('Usuario sin escuela asociada');
+    const staff = await this.prisma.schoolStaff.findFirst({
+      where: {
+        userId: user.id,
+        schoolId: input.schoolId,
+      },
+    });
+
+    if (!staff) {
+      throw new ForbiddenException('No te pertenece esta escuela');
     }
 
     return this.prisma.player.create({
       data: {
         ...input,
-        schoolId: user.schoolId,
       },
     });
   }
@@ -36,7 +42,13 @@ export class PlayersService {
 
     if (!player) throw new NotFoundException('Jugador no encontrado');
 
-    if (player.schoolId !== user.schoolId) {
+    const staff = await this.prisma.schoolStaff.findFirst({
+      where: {
+        userId: user.id,
+        schoolId: player?.schoolId || '',
+      },
+    });
+    if (!staff) {
       throw new ForbiddenException('Acceso denegado');
     }
 
@@ -53,7 +65,13 @@ export class PlayersService {
 
     if (!player) throw new NotFoundException('Jugador no encontrado');
 
-    if (player.schoolId !== user.schoolId) {
+    const staff = await this.prisma.schoolStaff.findFirst({
+      where: {
+        userId: user.id,
+        schoolId: player?.schoolId || '',
+      },
+    });
+    if (!staff) {
       throw new ForbiddenException('Acceso denegado');
     }
 
@@ -90,17 +108,31 @@ export class PlayersService {
       where: {
         schoolId: schoolId,
       },
+      include: {
+        category: true,
+        guardian: true,
+      },
     });
   }
 
   async findProfile(playerId: string, user: any) {
     const player = await this.prisma.player.findUnique({
       where: { id: playerId },
+      include: {
+        category: true,
+        guardian: true,
+      },
     });
 
     if (!player) throw new NotFoundException('Jugador no encontrado');
 
-    if (player.schoolId !== user.schoolId) {
+    const staff = await this.prisma.schoolStaff.findFirst({
+      where: {
+        userId: user.id,
+        schoolId: player?.schoolId || '',
+      },
+    });
+    if (!staff) {
       throw new ForbiddenException('Acceso denegado');
     }
 

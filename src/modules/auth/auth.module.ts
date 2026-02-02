@@ -15,7 +15,7 @@ import { AuthResolver } from './auth.resolver';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         global: true, // Importante: hace que JwtService esté disponible en toda la app (incluido el Guard)
-        secret: configService.get('JWT_SECRET') || 'SUPER_SECRET_KEY',
+        secret: 'SUPER_SECRET_KEY',
         signOptions: { expiresIn: '7d' },
       }),
     }),

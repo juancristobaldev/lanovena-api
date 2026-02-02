@@ -6,6 +6,9 @@ import {
   registerEnumType,
 } from '@nestjs/graphql';
 import { CategoryType } from '@prisma/client';
+import { TrainingSessionEntity } from './training-session.entity';
+import { MatchEntity } from './match.entity';
+import { PlayerEntity } from './player.entity';
 
 // Registramos el Enum de Prisma para que GraphQL lo reconozca
 registerEnumType(CategoryType, {
@@ -23,9 +26,16 @@ export class CategoryEntity {
 
   @Field(() => CategoryType)
   type: CategoryType;
-
+  @Field(() => [PlayerEntity])
+  players: PlayerEntity[];
   @Field()
   schoolId: string;
+
+  @Field(() => [TrainingSessionEntity], { nullable: true })
+  sessions?: TrainingSessionEntity;
+
+  @Field(() => [MatchEntity], { nullable: true })
+  matches?: MatchEntity[];
 }
 
 @InputType()

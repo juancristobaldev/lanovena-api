@@ -7,7 +7,7 @@ import {
 
 import { Prisma, Role, User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-
+import * as bcrypt from 'bcrypt';
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
@@ -18,23 +18,34 @@ export class UsersService {
 
   async createUser(
     input: Prisma.UserCreateInput,
-    actor: { role: Role; schoolId?: string },
+    actor: { id: string; role: Role; schoolId?: string },
   ): Promise<User> {
     const existing = await this.prisma.user.findUnique({
       where: { email: input.email },
     });
+
+    if (actor.role !== 'SUPERADMIN') {
+      const schoolId = input.school?.connect?.id;
+
+      const staffSchool = await this.prisma.schoolStaff.findFirst({
+        where: {
+          userId: actor.id,
+          schoolId: schoolId,
+        },
+      });
+
+      if (!staffSchool) throw new ForbiddenException('Acceso denegado');
+    }
 
     if (existing) {
       throw new ConflictException('El email ya está registrado');
     }
 
     // Director solo puede crear usuarios en su escuela
-    if (actor.role === Role.DIRECTOR) {
-      input.school = { connect: { id: actor.schoolId! } };
-    }
 
+    const hashedPassword = await bcrypt.hash(input.password, 10);
     return this.prisma.user.create({
-      data: input,
+      data: { ...input, password: hashedPassword },
     });
   }
 
@@ -89,6 +100,13 @@ export class UsersService {
         role: Role.COACH,
         schoolId,
       },
+      include: {
+        coachProfile: {
+          include: {
+            categories: true,
+          },
+        },
+      },
     });
   }
 
@@ -108,23 +126,36 @@ export class UsersService {
   async updateUser(
     userId: string,
     data: Prisma.UserUpdateInput,
-    actor: { role: Role; schoolId?: string },
+    actor: { id: string; role: Role; schoolId?: string },
   ) {
     const target = await this.prisma.user.findUnique({
       where: { id: userId },
+    });
+
+    console.log(target);
+    if (!target?.schoolId) return null;
+
+    const staff = await this.prisma.schoolStaff.findFirst({
+      where: {
+        userId: actor.id,
+        schoolId: target?.schoolId,
+      },
     });
 
     if (!target) {
       throw new NotFoundException('Usuario no encontrado');
     }
 
-    if (actor.role === Role.DIRECTOR && target.schoolId !== actor.schoolId) {
+    if (actor.role === Role.DIRECTOR && !staff) {
       throw new ForbiddenException('Acceso denegado');
     }
 
+    let hashedPassword: any = data.password;
+    if (data.password) hashedPassword = await bcrypt.hash(hashedPassword, 10);
+
     return this.prisma.user.update({
       where: { id: userId },
-      data,
+      data: { ...data, password: hashedPassword },
     });
   }
 

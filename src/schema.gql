@@ -2,11 +2,154 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+type ExerciseEntity {
+  id: ID!
+  title: String!
+  description: String!
+  objective: String
+  difficulty: ExerciseDifficulty!
+  videoUrl: String
+  imageUrl: String
+  schoolId: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Nivel de dificultad del ejercicio"""
+enum ExerciseDifficulty {
+  BASIC
+  INTERMEDIATE
+  ADVANCED
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type SessionExerciseEntity {
+  id: ID!
+
+  """Duración en minutos para esta sesión específica"""
+  durationMinutes: Int!
+
+  """Orden de ejecución en la sesión (1, 2, 3...)"""
+  orderIndex: Int!
+  specificNotes: String
+  exercise: ExerciseEntity!
+}
+
+type NextEvent {
+  id: ID!
+  title: String!
+  date: DateTime!
+  type: EventType!
+  location: String
+  isCitado: Boolean!
+}
+
+"""Tipo de evento próximo: Partido o Entrenamiento"""
+enum EventType {
+  MATCH
+  TRAINING
+}
+
+type PlayerStats {
+  attendanceRate: Float!
+  lastAttendance: DateTime
+}
+
+type PlayerFinancialStatus {
+  status: PaymentStatus!
+  debtAmount: Float!
+  lastPaymentDate: DateTime
+}
+
+"""Estado del pago de la mensualidad"""
+enum PaymentStatus {
+  PENDING
+  PAID
+  OVERDUE
+  WAIVED
+}
+
+type PlayerEntity {
+  id: String!
+  firstName: String!
+  lastName: String!
+  birthDate: DateTime!
+  photoUrl: String
+  medicalInfo: String
+  active: Boolean!
+  scholarship: Boolean!
+  qrCodeToken: String!
+  categoryId: ID!
+  school: SchoolEntity
+  schoolId: ID!
+  category: CategoryEntity
+  guardian: UserEntity
+  guardianId: String!
+  stats: PlayerStats
+  financialStatus: PlayerFinancialStatus
+  nextEvent: NextEvent
+}
+
+type AttendanceEntity {
+  id: ID!
+  status: AttendanceStatus!
+  notes: String
+  createdAt: DateTime!
+  player: PlayerEntity!
+  session: TrainingSessionEntity!
+}
+
+"""Estado de asistencia del jugador (PRESENT, ABSENT, LATE, EXCUSED)"""
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  JUSTIFIED
+}
+
+type TrainingSessionEntity {
+  id: ID!
+  date: DateTime!
+  notes: String
+  categoryId: ID!
+  category: CategoryEntity!
+  exercises: [SessionExerciseEntity!]
+  attendance: [AttendanceEntity!]
+}
+
+type MatchStatEntity {
+  id: ID!
+  goals: Int!
+  assists: Int!
+  matchId: String!
+  playerId: String!
+  match: MatchEntity!
+  player: PlayerEntity!
+}
+
+type MatchEntity {
+  id: ID!
+  rivalName: String!
+  date: DateTime!
+  isHome: Boolean!
+  location: String
+  categoryId: String!
+  notes: String
+  category: CategoryEntity!
+  stats: [MatchStatEntity!]
+}
+
 type CategoryEntity {
   id: ID!
   name: String!
   type: CategoryType!
+  players: [PlayerEntity!]!
   schoolId: String!
+  sessions: [TrainingSessionEntity!]
+  matches: [MatchEntity!]
 }
 
 """Tipo de categoría: FORMATIVA o SELECTIVA"""
@@ -31,11 +174,12 @@ type UserEntity {
   role: UserRole!
   isActive: Boolean!
   schoolId: ID
-  school: [SchoolEntity!]
+  school: SchoolEntity
   schools: [SchoolStaff!]
   createdAt: DateTime!
   updatedAt: DateTime!
   coachProfile: CoachEntity
+  managedPlayers: [PlayerEntity!]
 }
 
 enum UserRole {
@@ -44,11 +188,6 @@ enum UserRole {
   COACH
   GUARDIAN
 }
-
-"""
-A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
-"""
-scalar DateTime
 
 """Beneficio o subvención municipal (Solo Modo Institucional)"""
 type Benefit {
@@ -61,6 +200,13 @@ type Benefit {
   description: String!
   active: Boolean!
   schoolId: String!
+}
+
+type CountSchool {
+  players: Int!
+  categories: Int!
+  coaches: Int!
+  guardians: Int!
 }
 
 type SchoolEntity {
@@ -83,6 +229,7 @@ type SchoolEntity {
 
   """Lista de beneficios (Solo Modo Institucional)"""
   benefits: [Benefit!]
+  _count: CountSchool!
 
   """Uso de cuotas del plan (Guardrails)"""
   resourceUsage: ResourceUsage!
@@ -125,69 +272,6 @@ type ResourceUsage {
   canAddCategory: Boolean!
 }
 
-type PlayerEntity {
-  id: ID!
-  firstName: String!
-  lastName: String!
-  birthDate: DateTime!
-  photoUrl: String
-  medicalInfo: String
-  active: Boolean!
-  scholarship: Boolean!
-  qrCodeToken: String!
-  categoryId: ID!
-  category: CategoryEntity!
-  guardian: UserEntity!
-  guardianId: ID!
-}
-
-type ExerciseEntity {
-  id: ID!
-  name: String!
-  description: String
-  videoUrl: String
-  imageUrl: String
-  category: String!
-}
-
-type SessionExerciseEntity {
-  id: ID!
-
-  """Duración en minutos para esta sesión específica"""
-  durationMinutes: Int!
-
-  """Orden de ejecución en la sesión (1, 2, 3...)"""
-  orderIndex: Int!
-  specificNotes: String
-  exercise: ExerciseEntity!
-}
-
-type AttendanceEntity {
-  id: ID!
-  status: AttendanceStatus!
-  notes: String
-  createdAt: DateTime!
-  player: PlayerEntity!
-  session: TrainingSessionEntity!
-}
-
-"""Estado de asistencia del jugador (PRESENT, ABSENT, LATE, EXCUSED)"""
-enum AttendanceStatus {
-  PRESENT
-  ABSENT
-  JUSTIFIED
-}
-
-type TrainingSessionEntity {
-  id: ID!
-  date: DateTime!
-  notes: String
-  categoryId: ID!
-  category: CategoryEntity!
-  exercises: [SessionExerciseEntity!]
-  attendance: [AttendanceEntity!]
-}
-
 type MonthlyFeeEntity {
   id: ID!
   amount: Float!
@@ -199,14 +283,6 @@ type MonthlyFeeEntity {
   year: Int!
   schoolId: String!
   player: PlayerEntity!
-}
-
-"""Estado del pago de la mensualidad"""
-enum PaymentStatus {
-  PENDING
-  PAID
-  OVERDUE
-  WAIVED
 }
 
 type FinanceSummary {
@@ -332,6 +408,23 @@ type TacticalBoard {
   updatedAt: DateTime!
 }
 
+type Strategy {
+  id: String!
+  title: String!
+  description: String
+  tokens: JSON!
+  drawingData: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  coachId: String!
+  coach: UserEntity!
+}
+
+"""
+The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
+"""
+scalar JSON
+
 type Query {
   schools(mode: SchoolMode): [SchoolEntity!]!
   schoolsByDirector: [SchoolEntity!]!
@@ -341,6 +434,9 @@ type Query {
   guardiansBySchool(schoolId: String): [UserEntity!]!
   usersByRole(role: UserRole!, schoolId: String!): [UserEntity!]!
   users: [UserEntity!]!
+  meGuardian: UserEntity!
+  meCoach: UserEntity!
+  getMyPlayersCarnet: UserEntity!
 
   """Retorna el usuario actualmente autenticado (Perfil)"""
   me: UserEntity!
@@ -370,6 +466,12 @@ type Query {
   myTacticalBoards: [TacticalBoard!]!
   categories(schoolId: String): [CategoryEntity!]!
   category(id: String!): CategoryEntity!
+  myStrategies: [Strategy!]!
+  strategy(id: String!): Strategy!
+  matches: [MatchEntity!]!
+  matchesByCategory(categoryId: ID!): [MatchEntity!]!
+  match(id: ID!): MatchEntity!
+  mySchoolExercises(schoolId: String!): [ExerciseEntity!]!
 }
 
 type Mutation {
@@ -381,13 +483,15 @@ type Mutation {
   createBenefit(input: CreateBenefitInput!): Benefit!
   deleteBenefit(id: ID!): Benefit!
   createUser(input: CreateUserInput!): UserEntity!
-  updateUser(userId: ID!, input: UpdateUserInput!): UserEntity!
-  deactivateUser(userId: ID!): Boolean!
+  createCoach(input: CreateUserInput!): UserEntity!
+  updateUser(userId: String!, input: UpdateUserInput!): UserEntity!
+  deactivateUser(userId: String!): Boolean!
   createGuardian(input: CreateUserInput!): UserEntity!
   assignCategoriesToCoach(userId: String!, categoryIds: [String!]!): CoachEntity!
   createPlayer(input: CreatePlayerInput!): PlayerEntity!
   updatePlayer(playerId: String!, input: UpdatePlayerInput!): PlayerEntity!
   togglePlayerActive(playerId: String!): PlayerEntity!
+  registerAttendance(sessionId: String!, playerId: String!, status: String!): AttendanceEntity!
   createTrainingSession(input: CreateTrainingSessionInput!): TrainingSessionEntity!
   updateTrainingSession(sessionId: ID!, input: UpdateTrainingSessionInput!): TrainingSessionEntity!
   removeTrainingSession(sessionId: ID!): Boolean!
@@ -416,6 +520,14 @@ type Mutation {
   createCategory(input: CreateCategoryInput!): CategoryEntity!
   updateCategory(id: String!, input: UpdateCategoryInput!): CategoryEntity!
   removeCategory(id: String!): CategoryEntity!
+  createStrategy(createStrategyInput: CreateStrategyInput!): Strategy!
+  updateStrategy(updateStrategyInput: UpdateStrategyInput!): Strategy!
+  removeStrategy(id: String!): Strategy!
+  createMatch(input: CreateMatchInput!): MatchEntity!
+  updateMatch(input: UpdateMatchInput!): MatchEntity!
+  removeMatch(id: ID!): MatchEntity!
+  createExercise(schoolId: String!, input: CreateExerciseInput!): ExerciseEntity!
+  removeExercise(id: String!): Boolean!
 }
 
 input CreateSchoolInput {
@@ -476,6 +588,7 @@ input CreatePlayerInput {
   photoUrl: String
   medicalInfo: String
   scholarship: Boolean = false
+  schoolId: ID!
   categoryId: ID!
   guardianId: ID!
 }
@@ -487,12 +600,15 @@ input UpdatePlayerInput {
   photoUrl: String
   medicalInfo: String
   scholarship: Boolean = false
+  schoolId: ID
   categoryId: ID
   guardianId: ID
   active: Boolean
 }
 
 input CreateTrainingSessionInput {
+  title: String!
+  location: String!
   date: DateTime!
   notes: String
   categoryId: ID!
@@ -502,6 +618,8 @@ input CreateTrainingSessionInput {
 }
 
 input UpdateTrainingSessionInput {
+  title: String
+  location: String
   date: DateTime
   notes: String
   categoryId: ID
@@ -606,4 +724,53 @@ input CreateCategoryInput {
 input UpdateCategoryInput {
   name: String
   type: CategoryType
+}
+
+input CreateStrategyInput {
+  title: String!
+  description: String
+  tokens: JSON!
+  drawingData: String
+}
+
+input UpdateStrategyInput {
+  title: String
+  description: String
+  tokens: JSON
+  drawingData: String
+  id: String!
+}
+
+input CreateMatchInput {
+  date: DateTime!
+  rivalName: String!
+  isHome: Boolean! = true
+  location: String
+  notes: String
+
+  """Estado inicial del partido (SCHEDULED, PLAYED, etc)"""
+  status: String
+  categoryId: ID!
+}
+
+input UpdateMatchInput {
+  date: DateTime
+  rivalName: String
+  isHome: Boolean = true
+  location: String
+  notes: String
+
+  """Estado inicial del partido (SCHEDULED, PLAYED, etc)"""
+  status: String
+  categoryId: ID
+  id: ID!
+}
+
+input CreateExerciseInput {
+  title: String!
+  description: String!
+  objective: String
+  difficulty: ExerciseDifficulty
+  videoUrl: String
+  imageUrl: String
 }

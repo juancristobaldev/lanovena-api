@@ -37,19 +37,20 @@ export class TrainingSessionEntity {
 
 @InputType()
 export class CreateTrainingSessionInput {
+  @Field(() => String)
+  title: string;
+  @Field(() => String)
+  location: string;
   @Field(() => Date)
   @IsDate()
   date: Date;
-
   @Field(() => String, { nullable: true })
   @IsString()
   @IsOptional()
   notes?: string;
-
   @Field(() => ID)
   @IsUUID()
   categoryId: string;
-
   @Field(() => [ID], { nullable: true, description: 'IDs de los ejercicios' })
   @IsArray()
   @IsUUID('4', { each: true })

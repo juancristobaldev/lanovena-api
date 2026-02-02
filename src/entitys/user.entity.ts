@@ -18,6 +18,7 @@ import {
 } from 'class-validator';
 import { SchoolEntity, SchoolStaff } from './school.entity';
 import { CoachEntity } from './coach.entity';
+import { PlayerEntity } from './player.entity';
 
 // Registrar Enum Role
 registerEnumType(Role, { name: 'UserRole' }); // "Role" a veces da conflicto, mejor UserRole
@@ -48,8 +49,8 @@ export class UserEntity {
   @Field(() => ID, { nullable: true })
   schoolId?: string;
 
-  @Field(() => [SchoolEntity], { nullable: true })
-  school?: SchoolEntity[];
+  @Field(() => SchoolEntity, { nullable: true })
+  school?: SchoolEntity;
 
   @Field(() => [SchoolStaff], { nullable: true })
   schools?: SchoolStaff[];
@@ -59,8 +60,12 @@ export class UserEntity {
 
   @Field(() => Date)
   updatedAt: Date;
+
   @Field(() => CoachEntity, { nullable: true })
   coachProfile?: CoachEntity;
+
+  @Field(() => [PlayerEntity], { nullable: true })
+  managedPlayers?: PlayerEntity[];
 }
 
 @InputType()

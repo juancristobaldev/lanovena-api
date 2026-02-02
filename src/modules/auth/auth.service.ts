@@ -31,6 +31,8 @@ export class AuthService {
       include: { school: true },
     });
 
+    console.log({ user });
+
     if (user && user.isActive && (await bcrypt.compare(pass, user.password))) {
       const { password, ...result } = user;
       return result;

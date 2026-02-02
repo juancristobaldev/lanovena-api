@@ -43,22 +43,75 @@ export class UsersResolver {
     @Args('input') input: CreateUserInput,
     @CurrentUser() user: UserEntity,
   ) {
-    return this.usersService.createUser(input as any, user);
+    const data = {
+      ...input,
+      school: {
+        connect: {
+          id: input.schoolId,
+        },
+      },
+    };
+    delete data.schoolId;
+    return this.usersService.createUser(data as any, user);
+  }
+
+  @Mutation(() => UserEntity)
+  @Roles(Role.SUPERADMIN, Role.DIRECTOR)
+  async createCoach(
+    @Args('input') input: CreateUserInput,
+    @CurrentUser() user: UserEntity,
+  ) {
+    if (!input.schoolId) return null;
+
+    const data = {
+      ...input,
+      school: {
+        connect: {
+          id: input.schoolId,
+        },
+      },
+    };
+
+    const createdUser = await this.prisma.user.create({
+      data: {
+        email: data.email,
+        fullName: data.fullName,
+        password: data.password,
+        role: 'COACH',
+        phone: data.phone,
+        schoolId: data.schoolId,
+        coachProfile: {
+          create: {
+            bio: '',
+          },
+        },
+      },
+    });
+
+    return createdUser;
   }
 
   @Mutation(() => UserEntity)
   @Roles(Role.SUPERADMIN, Role.DIRECTOR)
   updateUser(
-    @Args('userId', { type: () => ID }) userId: string,
+    @Args('userId', { type: () => String }) userId: string,
     @Args('input') input: UpdateUserInput,
     @CurrentUser() user: UserEntity,
   ) {
-    return this.usersService.updateUser(userId, input as any, user);
+    console.log({ userId, input, user });
+    const updatedUser = this.usersService.updateUser(
+      userId,
+      input as any,
+      user,
+    );
+
+    console.log({ updatedUser });
+    return updatedUser;
   }
 
   @Mutation(() => Boolean)
   @Roles(Role.SUPERADMIN)
-  deactivateUser(@Args('userId', { type: () => ID }) userId: string) {
+  deactivateUser(@Args('userId', { type: () => String }) userId: string) {
     return this.usersService.deactivateUser(userId);
   }
 
@@ -90,17 +143,22 @@ export class UsersResolver {
 
   @Query(() => [UserEntity])
   @Roles(Role.SUPERADMIN, Role.DIRECTOR)
-  usersByRole(
+  async usersByRole(
     @Args('role', { type: () => Role }) role: Role,
     @Args('schoolId', { type: () => String }) schoolId: string,
   ) {
+    console.log({ role, schoolId });
     // Aprovechamos el schoolId del usuario autenticado para seguridad
-    return this.prisma.user.findMany({
+    const users = await this.prisma.user.findMany({
       where: {
         role: role,
         schoolId: schoolId,
       },
     });
+
+    console.log({ users });
+
+    return users;
   }
 
   // 2. CREAR APODERADO (ADMINISTRATIVO)
@@ -139,6 +197,96 @@ export class UsersResolver {
   }
 
   @Query(() => UserEntity)
+  @Roles(Role.GUARDIAN)
+  async meGuardian(@CurrentUser() user: UserEntity) {
+    const findUser = await this.prisma.user.findUnique({
+      where: {
+        id: user.id,
+      },
+      include: {
+        managedPlayers: {
+          include: {
+            school: true,
+            category: {
+              include: {
+                sessions: true,
+                matches: true,
+              },
+            },
+          },
+        },
+        school: true,
+      },
+    });
+
+    console.log({ findUser, managedPlayers: findUser?.managedPlayers });
+    if (!findUser) {
+      throw new UnauthorizedException('Usuario no encontrado');
+    }
+
+    console.log({ ...findUser, managedPlayers: findUser.managedPlayers || [] });
+    return { ...findUser, managedPlayers: findUser.managedPlayers || [] };
+  }
+
+  @Query(() => UserEntity)
+  @Roles(Role.GUARDIAN)
+  async meCoach(@CurrentUser() user: UserEntity) {
+    const findUser = await this.prisma.user.findUnique({
+      where: {
+        id: user.id,
+      },
+      include: {
+        coachProfile: {
+          include: {
+            categories: {
+              include: {
+                players: true,
+                matches: true,
+                sessions: {
+                  include: {
+                    category: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!findUser) {
+      throw new UnauthorizedException('Usuario no encontrado');
+    }
+
+    return findUser;
+  }
+  @Query(() => UserEntity)
+  @Roles(Role.GUARDIAN)
+  async getMyPlayersCarnet(@CurrentUser() user: UserEntity) {
+    const findUser = await this.prisma.user.findUnique({
+      where: {
+        id: user.id,
+      },
+      include: {
+        managedPlayers: {
+          include: {
+            category: true,
+            school: true,
+          },
+        },
+      },
+    });
+
+    console.log({ findUser, managedPlayers: findUser?.managedPlayers });
+    if (!findUser) {
+      throw new UnauthorizedException('Usuario no encontrado');
+    }
+
+    console.log({ ...findUser, managedPlayers: findUser.managedPlayers || [] });
+    return { ...findUser, managedPlayers: findUser.managedPlayers || [] };
+  }
+
+  @Query(() => UserEntity)
   async me(@CurrentUser() user: UserEntity) {
     const findUser = await this.usersService.findById(user.id, user);
 
@@ -169,14 +317,20 @@ export class UsersResolver {
 
     if (!coach) throw new InternalServerErrorException('Coach not found');
     // Actualizamos la relación M:N
-    return this.prisma.coach.update({
+    const coachUp = await this.prisma.coach.update({
       where: { id: coach.id },
       data: {
         categories: {
           set: categoryIds.map((id) => ({ id })), // 'set' reemplaza las anteriores por las nuevas
         },
       },
+      include: {
+        user: true,
+      },
     });
+
+    console.log({ coachUp });
+    return coachUp;
   }
 
   @Query(() => [UserEntity])
@@ -217,6 +371,7 @@ export class UsersResolver {
   ) {
     const targetSchoolId = schoolId || user.schoolId;
 
+    console.log({ targetSchoolId });
     if (!targetSchoolId) {
       throw new ForbiddenException(
         'School ID es requerido para listar apoderados',

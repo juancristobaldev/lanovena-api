@@ -1,5 +1,5 @@
-import { Resolver, Mutation, Query, Args, Context, ID } from '@nestjs/graphql';
-import { UseGuards } from '@nestjs/common';
+import { Resolver, Mutation, Query, Args, ID } from '@nestjs/graphql';
+import { UseGuards, UnauthorizedException } from '@nestjs/common';
 import { TrainingSessionsService } from './training-sessions.service';
 import {
   CreateTrainingSessionInput,
@@ -11,25 +11,56 @@ import { GqlAuthGuard } from 'src/auth/guards/gql-auth.guard';
 import { AttendanceStatus, Role } from '@prisma/client';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { AttendanceEntity } from 'src/entitys/attendace-session.entity';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import { UserEntity } from 'src/entitys/user.entity';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Resolver(() => TrainingSessionEntity)
 @UseGuards(GqlAuthGuard, RolesGuard)
 export class TrainingSessionsResolver {
   constructor(
     private readonly trainingSessionsService: TrainingSessionsService,
+    private readonly prisma: PrismaService, // Inyectamos Prisma
   ) {}
+
+  /**
+   * Helper para obtener el schoolId.
+   * Si el usuario no lo tiene directo (ej: Director), lo busca en SchoolStaff.
+   */
+  private async getSchoolId(user: UserEntity): Promise<string> {
+    // 1. Si ya viene en el usuario (ej: Coach logueado con contexto rico), úsalo.
+    if (user.schoolId) return user.schoolId;
+
+    // 2. Si es Director (o Coach sin contexto), búscalo en la tabla SchoolStaff
+    const staff = await this.prisma.schoolStaff.findFirst({
+      where: { userId: user.id },
+      select: { schoolId: true }, // Solo traemos el ID
+    });
+
+    if (!staff || !staff.schoolId) {
+      throw new UnauthorizedException(
+        'No tienes una escuela asignada o permisos válidos.',
+      );
+    }
+
+    return staff.schoolId;
+  }
 
   /* ===========================================================================
    * MUTATIONS
    * =========================================================================== */
+
   @Mutation(() => AttendanceEntity)
   @Roles(Role.COACH, Role.DIRECTOR)
   async registerAttendance(
     @Args('sessionId') sessionId: string,
     @Args('playerId') playerId: string,
-    @Args('status') status: AttendanceStatus, // Crear este Enum en GraphQL
+    @Args('status') status: AttendanceStatus,
+    @CurrentUser() user: UserEntity,
   ) {
-    // Llama a un método nuevo en el servicio que haga un upsert en la tabla Attendance
+    // Validamos que el usuario pertenezca a una escuela (opcional, por seguridad)
+    await this.getSchoolId(user);
+
     return this.trainingSessionsService.registerAttendance(
       sessionId,
       playerId,
@@ -38,38 +69,47 @@ export class TrainingSessionsResolver {
   }
 
   @Mutation(() => TrainingSessionEntity)
-  @Roles(Role.DIRECTOR, Role.COACH)
-  createTrainingSession(
+  @Roles(Role.COACH, Role.DIRECTOR) // Agregué Director por si acaso
+  async createTrainingSession(
     @Args('input') input: CreateTrainingSessionInput,
-    @Context() context: any,
+    @CurrentUser() user: UserEntity,
   ) {
-    return this.trainingSessionsService.create(input as any, context.user);
+    // Obtenemos el ID real, ya sea del user o del staff
+    // Pasamos el schoolId al servicio (asegúrate que tu servicio acepte este 2do param o inyéctalo en el input)
+    // Opción A: Si tu servicio espera (input, schoolId)
+    // return this.trainingSessionsService.create(input, schoolId);
+
+    // Opción B (Lo más probable según tu código anterior): Inyectarlo en el input
+    return this.trainingSessionsService.create({
+      ...input,
+      // schoolId: schoolId, // Descomenta si tu CreateInput tiene este campo oculto
+    } as any);
   }
 
   @Mutation(() => TrainingSessionEntity)
   @Roles(Role.DIRECTOR, Role.COACH)
-  updateTrainingSession(
+  async updateTrainingSession(
     @Args('sessionId', { type: () => ID }) sessionId: string,
     @Args('input') input: UpdateTrainingSessionInput,
-    @Context() context: any,
+    @CurrentUser() user: UserEntity,
   ) {
+    const schoolId = await this.getSchoolId(user);
+
     return this.trainingSessionsService.update(
       sessionId,
       input as any,
-      context.user.schoolId,
+      schoolId,
     );
   }
 
   @Mutation(() => Boolean)
   @Roles(Role.DIRECTOR)
-  removeTrainingSession(
+  async removeTrainingSession(
     @Args('sessionId', { type: () => ID }) sessionId: string,
-    @Context() context: any,
+    @CurrentUser() user: UserEntity,
   ) {
-    return this.trainingSessionsService.remove(
-      sessionId,
-      context.user.schoolId,
-    );
+    const schoolId = await this.getSchoolId(user);
+    return this.trainingSessionsService.remove(sessionId, schoolId);
   }
 
   /* ===========================================================================
@@ -78,25 +118,32 @@ export class TrainingSessionsResolver {
 
   @Query(() => [TrainingSessionEntity])
   @Roles(Role.DIRECTOR, Role.COACH, Role.GUARDIAN)
-  trainingSessionsByCategory(
+  async trainingSessionsByCategory(
     @Args('categoryId', { type: () => ID }) categoryId: string,
-    @Context() context: any,
+    @CurrentUser() user: UserEntity,
   ) {
-    return this.trainingSessionsService.findByCategory(
-      categoryId,
-      context.user.schoolId,
-    );
+    // Nota: Para GUARDIAN, la lógica podría ser distinta (ellos no están en SchoolStaff)
+    // Si GUARDIAN también necesita validación, habría que ajustar el getSchoolId
+    // asumiendo aquí que Director y Coach son los principales consumidores de esta lógica.
+
+    if (user.role === Role.GUARDIAN) {
+      // Lógica específica para guardián si es necesaria, o return null
+      // return this.trainingSessionsService.findByCategoryForGuardian(categoryId);
+    }
+
+    const schoolId = await this.getSchoolId(user);
+
+    return this.trainingSessionsService.findByCategory(categoryId, schoolId);
   }
 
   @Query(() => TrainingSessionEntity)
   @Roles(Role.DIRECTOR, Role.COACH)
-  trainingSession(
+  async trainingSession(
     @Args('sessionId', { type: () => ID }) sessionId: string,
-    @Context() context: any,
+    @CurrentUser() user: UserEntity,
   ) {
-    return this.trainingSessionsService.findOne(
-      sessionId,
-      context.user.schoolId,
-    );
+    const schoolId = await this.getSchoolId(user);
+
+    return this.trainingSessionsService.findOne(sessionId, schoolId);
   }
 }

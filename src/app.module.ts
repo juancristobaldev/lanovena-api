@@ -19,6 +19,10 @@ import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { join } from 'path';
 import { CategoriesModule } from './modules/categories/categories.module';
+import { EvaluationsModule } from './modules/evaluations/evaluations.module';
+import { StrategyModule } from './modules/strategy/strategy.module';
+import { MatchModule } from './modules/match/match.module';
+import { ExerciseModule } from './modules/exercise/exercise.module';
 
 @Module({
   imports: [
@@ -41,6 +45,10 @@ import { CategoriesModule } from './modules/categories/categories.module';
     NotificationsModule,
     FlowModule,
     CategoriesModule,
+    EvaluationsModule,
+    StrategyModule,
+    MatchModule,
+    ExerciseModule,
   ],
   controllers: [AppController],
   providers: [AppService, TasksService],
