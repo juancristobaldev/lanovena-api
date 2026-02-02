@@ -40,9 +40,11 @@ enum CategoryType {
 }
 
 enum AttendanceStatus {
-  PRESENT
-  ABSENT
-  JUSTIFIED
+  PRESENT  
+  ABSENT  
+  LATE
+    EXCUSED 
+     PENDING
 }
 
 enum PaymentStatus {

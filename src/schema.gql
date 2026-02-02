@@ -107,7 +107,9 @@ type AttendanceEntity {
 enum AttendanceStatus {
   PRESENT
   ABSENT
-  JUSTIFIED
+  LATE
+  EXCUSED
+  PENDING
 }
 
 type TrainingSessionEntity {
