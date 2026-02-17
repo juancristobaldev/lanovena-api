@@ -1,3 +1,5 @@
+import 'module-alias/register';
+
 import 'reflect-metadata';
 
 import { NestFactory } from '@nestjs/core';
@@ -14,6 +16,8 @@ async function bootstrap() {
     origin: [
       'http://localhost:3000', // Next.js
       'http://127.0.0.1:3000',
+      'https://lanovena.pro',
+      'https://www.lanovena.pro',
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
