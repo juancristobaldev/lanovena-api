@@ -1,4 +1,4 @@
-import { ObjectType, Field, ID, registerEnumType } from '@nestjs/graphql';
+import { ObjectType, Field, ID, registerEnumType, Int } from '@nestjs/graphql';
 import { TrainingSessionEntity } from './training-session.entity';
 import { AttendanceStatus } from '@prisma/client'; // Usamos el enum nativo de Prisma
 import { PlayerEntity } from './player.entity';
@@ -31,4 +31,10 @@ export class AttendanceEntity {
 
   @Field(() => TrainingSessionEntity)
   session: TrainingSessionEntity;
+
+  @Field(() => String, { nullable: true })
+  feedback?: string;
+
+  @Field(() => Int, { nullable: true })
+  rating?: number;
 }

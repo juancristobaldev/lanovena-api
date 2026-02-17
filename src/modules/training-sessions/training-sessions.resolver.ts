@@ -1,4 +1,4 @@
-import { Resolver, Mutation, Query, Args, ID } from '@nestjs/graphql';
+import { Resolver, Mutation, Query, Args, ID, Int } from '@nestjs/graphql';
 import { UseGuards, UnauthorizedException } from '@nestjs/common';
 import { TrainingSessionsService } from './training-sessions.service';
 import {
@@ -22,6 +22,35 @@ export class TrainingSessionsResolver {
     private readonly trainingSessionsService: TrainingSessionsService,
     private readonly prisma: PrismaService, // Inyectamos Prisma
   ) {}
+
+  @Mutation(() => TrainingSessionEntity)
+  @Roles(Role.COACH, Role.DIRECTOR)
+  async completeTrainingSession(
+    @Args('sessionId', { type: () => ID }) sessionId: string,
+    @CurrentUser() user: UserEntity,
+  ) {
+    const schoolId = await this.getSchoolId(user);
+    return this.trainingSessionsService.markAsCompleted(sessionId, schoolId);
+  }
+
+  @Mutation(() => AttendanceEntity) // O PlayerEvaluationEntity si creas una tabla aparte
+  @Roles(Role.COACH, Role.DIRECTOR)
+  async ratePlayerPerformance(
+    @Args('sessionId') sessionId: string,
+    @Args('playerId') playerId: string,
+    @Args('rating', { type: () => Int }) rating: number,
+    @Args('notes', { nullable: true }) notes: string,
+    @CurrentUser() user: UserEntity,
+  ) {
+    // Aquí llamas al servicio. Normalmente esto actualiza la tabla Attendance
+    // agregando campos 'rating' y 'feedback' a esa tabla, o crea un registro en PlayerEvaluation.
+    return this.trainingSessionsService.ratePlayer(
+      sessionId,
+      playerId,
+      rating,
+      notes,
+    );
+  }
 
   /**
    * Helper para obtener el schoolId.

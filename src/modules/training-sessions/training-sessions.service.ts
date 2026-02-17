@@ -10,6 +10,35 @@ import { CreateTrainingSessionInput } from 'src/entitys/training-session.entity'
 @Injectable()
 export class TrainingSessionsService {
   constructor(private readonly prisma: PrismaService) {}
+  async ratePlayer(
+    sessionId: string,
+    playerId: string,
+    rating: number,
+    notes?: string,
+  ) {
+    // Usamos upsert para asegurar que exista el registro de asistencia
+    // O update si asumimos que ya se pasó lista.
+    return this.prisma.attendance.upsert({
+      where: {
+        sessionId_playerId: {
+          // Asumiendo que tienes esta clave compuesta única
+          sessionId,
+          playerId,
+        },
+      },
+      update: {
+        rating,
+        feedback: notes,
+      },
+      create: {
+        sessionId,
+        playerId,
+        status: 'PRESENT', // Asumimos presente si lo evalúan
+        rating,
+        feedback: notes,
+      },
+    });
+  }
 
   async registerAttendance(
     sessionId: string,
@@ -41,6 +70,17 @@ export class TrainingSessionsService {
     });
   }
 
+  async markAsCompleted(sessionId: string, schoolId: string) {
+    // 1. Verificar existencia y permisos (SchoolId)
+    const session = await this.findOne(sessionId, schoolId);
+
+    // 2. Actualizar estado
+    return this.prisma.trainingSession.update({
+      where: { id: sessionId },
+      data: { status: 'COMPLETED' },
+    });
+  }
+
   /* ===========================================================================
    * CREATE
    * =========================================================================== */
@@ -50,6 +90,10 @@ export class TrainingSessionsService {
 
     delete newData.exerciseIds;
     delete newData.categoryId;
+    delete newData.tacticalBoardIds;
+
+    const tacticalBoards: any[] = data.tacticalBoardIds || [];
+
     return this.prisma.trainingSession.create({
       data: {
         ...newData,
@@ -67,6 +111,18 @@ export class TrainingSessionsService {
               })) || [],
           },
         },
+        ...(tacticalBoards.length
+          ? {
+              tacticalBoards: {
+                createMany: {
+                  data: tacticalBoards.map((boardId, index) => ({
+                    boardId,
+                    orderIndex: index,
+                  })),
+                },
+              },
+            }
+          : {}),
       },
     });
   }
@@ -105,6 +161,14 @@ export class TrainingSessionsService {
         attendance: {
           include: {
             player: true, // Para saber el nombre del alumno que asistió
+          },
+        },
+        tacticalBoards: {
+          include: {
+            tacticalBoard: true,
+          },
+          orderBy: {
+            orderIndex: 'asc',
           },
         },
       },

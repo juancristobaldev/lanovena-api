@@ -101,6 +101,8 @@ type AttendanceEntity {
   createdAt: DateTime!
   player: PlayerEntity!
   session: TrainingSessionEntity!
+  feedback: String
+  rating: Int
 }
 
 """Estado de asistencia del jugador (PRESENT, ABSENT, LATE, EXCUSED)"""
@@ -112,14 +114,49 @@ enum AttendanceStatus {
   PENDING
 }
 
+type TacticalBoardEntity {
+  id: ID!
+  title: String!
+  description: String
+  categoryId: String!
+  initialState: JSON!
+  animation: JSON
+  tags: [String!]
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""
+The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
+"""
+scalar JSON
+
+type SessionTacticalBoardEntity {
+  id: ID!
+  sessionId: String!
+  boardId: String!
+  orderIndex: Int!
+  notes: String
+  tacticalBoard: TacticalBoardEntity!
+}
+
 type TrainingSessionEntity {
   id: ID!
   date: DateTime!
+  status: SessionStatus!
   notes: String
   categoryId: ID!
   category: CategoryEntity!
   exercises: [SessionExerciseEntity!]
   attendance: [AttendanceEntity!]
+  tacticalBoards: [SessionTacticalBoardEntity!]
+  rating: Int
+}
+
+enum SessionStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
 }
 
 type MatchStatEntity {
@@ -392,24 +429,6 @@ type TestProtocol {
   baremoJson: String
 }
 
-"""Pizarra táctica digital guardada por un entrenador"""
-type TacticalBoard {
-  id: ID!
-  title: String!
-
-  """JSON String con las coordenadas de jugadores y líneas"""
-  configurationJson: String!
-
-  """Imagen de fondo (URL o tipo de cancha)"""
-  backgroundImage: String
-  coachId: String!
-
-  """ID de la sesión asociada (si aplica)"""
-  sessionId: String
-  createdAt: DateTime!
-  updatedAt: DateTime!
-}
-
 type Strategy {
   id: String!
   title: String!
@@ -421,11 +440,6 @@ type Strategy {
   coachId: String!
   coach: UserEntity!
 }
-
-"""
-The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
-"""
-scalar JSON
 
 type Query {
   schools(mode: SchoolMode): [SchoolEntity!]!
@@ -463,9 +477,6 @@ type Query {
 
   """Lista de tests estandarizados globales"""
   globalTestProtocols: [TestProtocol!]!
-
-  """Pizarras creadas por el usuario actual"""
-  myTacticalBoards: [TacticalBoard!]!
   categories(schoolId: String): [CategoryEntity!]!
   category(id: String!): CategoryEntity!
   myStrategies: [Strategy!]!
@@ -474,6 +485,8 @@ type Query {
   matchesByCategory(categoryId: ID!): [MatchEntity!]!
   match(id: ID!): MatchEntity!
   mySchoolExercises(schoolId: String!): [ExerciseEntity!]!
+  tacticalBoardsByCategory(categoryId: ID!): [TacticalBoardEntity!]!
+  tacticalBoard(id: ID!): TacticalBoardEntity!
 }
 
 type Mutation {
@@ -493,6 +506,8 @@ type Mutation {
   createPlayer(input: CreatePlayerInput!): PlayerEntity!
   updatePlayer(playerId: String!, input: UpdatePlayerInput!): PlayerEntity!
   togglePlayerActive(playerId: String!): PlayerEntity!
+  completeTrainingSession(sessionId: ID!): TrainingSessionEntity!
+  ratePlayerPerformance(sessionId: String!, playerId: String!, rating: Int!, notes: String): AttendanceEntity!
   registerAttendance(sessionId: String!, playerId: String!, status: String!): AttendanceEntity!
   createTrainingSession(input: CreateTrainingSessionInput!): TrainingSessionEntity!
   updateTrainingSession(sessionId: ID!, input: UpdateTrainingSessionInput!): TrainingSessionEntity!
@@ -516,9 +531,6 @@ type Mutation {
   sendInvite(email: String!): Referral!
   createSponsorship(input: CreateSponsorshipInput!): Sponsorship!
   createTestProtocol(input: CreateTestProtocolInput!): TestProtocol!
-  saveTacticalBoard(input: CreateTacticalBoardInput!): TacticalBoard!
-  updateTacticalBoard(input: UpdateTacticalBoardInput!): TacticalBoard!
-  deleteTacticalBoard(id: ID!): TacticalBoard!
   createCategory(input: CreateCategoryInput!): CategoryEntity!
   updateCategory(id: String!, input: UpdateCategoryInput!): CategoryEntity!
   removeCategory(id: String!): CategoryEntity!
@@ -530,6 +542,9 @@ type Mutation {
   removeMatch(id: ID!): MatchEntity!
   createExercise(schoolId: String!, input: CreateExerciseInput!): ExerciseEntity!
   removeExercise(id: String!): Boolean!
+  createTacticalBoard(input: CreateTacticalBoardInput!): TacticalBoardEntity!
+  updateTacticalBoard(input: UpdateTacticalBoardInput!): TacticalBoardEntity!
+  removeTacticalBoard(id: ID!): TacticalBoardEntity!
 }
 
 input CreateSchoolInput {
@@ -617,6 +632,9 @@ input CreateTrainingSessionInput {
 
   """IDs de los ejercicios"""
   exerciseIds: [ID!]
+
+  """IDs de las pizarras tácticas"""
+  tacticalBoardIds: [ID!]
 }
 
 input UpdateTrainingSessionInput {
@@ -628,6 +646,9 @@ input UpdateTrainingSessionInput {
 
   """IDs de los ejercicios"""
   exerciseIds: [ID!]
+
+  """IDs de las pizarras tácticas"""
+  tacticalBoardIds: [ID!]
 }
 
 input MarkFeeAsPaidInput {
@@ -698,25 +719,6 @@ input CreateTestProtocolInput {
   baremoJson: String
 }
 
-"""Datos para guardar una pizarra táctica"""
-input CreateTacticalBoardInput {
-  title: String!
-
-  """JSON stringificado con el estado del canvas"""
-  configurationJson: String!
-  backgroundImage: String
-
-  """Opcional: vincular a una sesión de entrenamiento"""
-  sessionId: String
-}
-
-"""Datos para actualizar una pizarra existente"""
-input UpdateTacticalBoardInput {
-  id: ID!
-  title: String
-  configurationJson: String
-}
-
 input CreateCategoryInput {
   name: String!
   type: CategoryType! = FORMATIVA
@@ -775,4 +777,25 @@ input CreateExerciseInput {
   difficulty: ExerciseDifficulty
   videoUrl: String
   imageUrl: String
+}
+
+input CreateTacticalBoardInput {
+  title: String!
+  description: String
+  categoryId: ID!
+  coachId: ID!
+  initialState: JSON!
+  animation: JSON
+  tags: [String!]
+}
+
+input UpdateTacticalBoardInput {
+  title: String
+  description: String
+  categoryId: ID
+  coachId: ID
+  initialState: JSON
+  animation: JSON
+  tags: [String!]
+  id: ID!
 }

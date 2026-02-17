@@ -26,6 +26,11 @@ enum SchoolMode {
   COMMERCIAL
   INSTITUTIONAL
 }
+enum SessionStatus {
+  SCHEDULED // Programado
+  COMPLETED // Finalizado
+  CANCELLED // Cancelado
+}
 
 enum PlanType {
   SEMILLERO
@@ -163,7 +168,59 @@ model Category {
   players  Player[]
   coaches  Coach[]           @relation("CoachCategories")
   sessions TrainingSession[]
-  matches  Match[]           // Relación con Partidos
+  matches  Match[]    
+  tacticalsBoards TacticalBoard[]       // Relación con Partidos
+}
+
+model SessionTacticalBoard {
+  id                String          @id @default(uuid())
+  
+  // Relación con la Sesión
+  sessionId         String
+  trainingSession   TrainingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  // Relación con la Pizarra
+  boardId           String
+  tacticalBoard     TacticalBoard   @relation(fields: [boardId], references: [id], onDelete: Cascade)
+
+  // Metadatos de la relación
+  orderIndex        Int             @default(0) // Importante para el ordenamiento en el frontend
+  notes             String?         // Notas opcionales para este momento específico
+
+  createdAt         DateTime        @default(now())
+  
+  @@index([sessionId])
+  @@index([boardId])
+}
+
+
+// Modelo Principal de la Pizarra
+model TacticalBoard {
+  id          String   @id @default(uuid())
+  title       String
+  description String?  @db.Text
+  
+  // Relación con Categoría
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+
+ coachId     String
+  coach       Coach    @relation(fields: [coachId], references: [id])
+  
+  // Estado INICIAL de la pizarra (tokens y dibujos al empezar)
+  initialState Json    // Guardaremos { tokens: [], strokes: [] }
+
+  // Animación (Array de frames)
+  animation    Json?   // Guardaremos [ { tokens: [], strokes: [] }, ... ]
+  
+  // Metadatos
+  tags        String[] // Ej: "Salida", "Corner", "Presión Alta"
+  
+  authorId    String   // Quién la creó
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sessions    SessionTacticalBoard[] // Para saber en qué sesiones se usó esta pizarra
 }
 
 model Player {
@@ -247,6 +304,7 @@ model TrainingSession {
   id         String   @id @default(uuid())
   title     String?
   location  String?
+  status  SessionStatus? @default(SCHEDULED)
   date       DateTime
   notes      String?
   categoryId String
@@ -254,10 +312,9 @@ model TrainingSession {
 
   exercises  SessionExercise[]
   attendance Attendance[]
-
+tacticalBoards SessionTacticalBoard[] // Relación con las pizarras
   // --- NUEVAS RELACIONES ---
-  tacticalBoards TacticalBoard[] // Pizarras usadas en esta sesión
-
+ 
   createdAt DateTime @default(now())
   updatedAt DateTime? @updatedAt 
 }
@@ -278,7 +335,8 @@ model Attendance {
   notes     String?
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
-
+rating Int?
+feedback String?
   // Relaciones
   player    Player          @relation(fields: [playerId], references: [id])
   playerId  String
@@ -467,22 +525,7 @@ model TestProtocol {
   evaluations Evaluation[]
 }
 
-model TacticalBoard {
-  id          String   @id @default(uuid())
-  title       String
-  
-  configurationJson String @db.Text // JSON con posiciones {players: [{id, x, y}], lines: []}
-  backgroundImage   String? // Cancha F5, F7, F11
-  
-  coachId     String
-  coach       Coach    @relation(fields: [coachId], references: [id])
-  
-  sessionId   String?
-  session     TrainingSession? @relation(fields: [sessionId], references: [id])
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
+
 
 // --- E. GESTIÓN & OPERACIONES (KANBAN) ---
 model Task {

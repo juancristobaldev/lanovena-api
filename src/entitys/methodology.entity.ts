@@ -36,43 +36,6 @@ export class TestProtocol {
   baremoJson?: string;
 }
 
-@ObjectType({
-  description: 'Pizarra táctica digital guardada por un entrenador',
-})
-export class TacticalBoard {
-  @Field(() => ID)
-  id: string;
-
-  @Field(() => String)
-  title: string;
-
-  @Field(() => String, {
-    description: 'JSON String con las coordenadas de jugadores y líneas',
-  })
-  configurationJson: string;
-
-  @Field(() => String, {
-    nullable: true,
-    description: 'Imagen de fondo (URL o tipo de cancha)',
-  })
-  backgroundImage?: string;
-
-  @Field(() => String)
-  coachId: string;
-
-  @Field(() => String, {
-    nullable: true,
-    description: 'ID de la sesión asociada (si aplica)',
-  })
-  sessionId?: string;
-
-  @Field(() => Date)
-  createdAt: Date;
-
-  @Field(() => Date)
-  updatedAt: Date;
-}
-
 // ==========================================
 // 2. INPUTS (Datos de entrada)
 // ==========================================
@@ -91,37 +54,4 @@ export class CreateTestProtocolInput {
 
   @Field(() => String, { nullable: true })
   baremoJson?: string;
-}
-
-// --- Inputs para Pizarras ---
-@InputType({ description: 'Datos para guardar una pizarra táctica' })
-export class CreateTacticalBoardInput {
-  @Field(() => String)
-  title: string;
-
-  @Field(() => String, {
-    description: 'JSON stringificado con el estado del canvas',
-  })
-  configurationJson: string;
-
-  @Field(() => String, { nullable: true })
-  backgroundImage?: string;
-
-  @Field(() => String, {
-    nullable: true,
-    description: 'Opcional: vincular a una sesión de entrenamiento',
-  })
-  sessionId?: string;
-}
-
-@InputType({ description: 'Datos para actualizar una pizarra existente' })
-export class UpdateTacticalBoardInput {
-  @Field(() => ID)
-  id: string;
-
-  @Field(() => String, { nullable: true })
-  title?: string;
-
-  @Field(() => String, { nullable: true })
-  configurationJson?: string;
 }

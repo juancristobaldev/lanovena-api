@@ -23,6 +23,7 @@ import { EvaluationsModule } from './modules/evaluations/evaluations.module';
 import { StrategyModule } from './modules/strategy/strategy.module';
 import { MatchModule } from './modules/match/match.module';
 import { ExerciseModule } from './modules/exercise/exercise.module';
+import { TacticalBoardModule } from './modules/tactical-board/tactical-board.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { ExerciseModule } from './modules/exercise/exercise.module';
     StrategyModule,
     MatchModule,
     ExerciseModule,
+    TacticalBoardModule,
   ],
   controllers: [AppController],
   providers: [AppService, TasksService],
