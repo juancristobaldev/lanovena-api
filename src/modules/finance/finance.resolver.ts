@@ -8,17 +8,17 @@ import {
   ID,
 } from '@nestjs/graphql';
 import { UseGuards, ForbiddenException } from '@nestjs/common';
-import { GqlAuthGuard } from 'src/auth/guards/gql-auth.guard';
-import { RolesGuard } from 'src/auth/guards/roles.guard';
-import { Roles } from 'src/auth/decorators/roles.decorator';
+import { GqlAuthGuard } from '../../auth/guards/gql-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 import { Role, PaymentStatus } from '@prisma/client';
 import { FinanceService } from './finance.service';
 import {
   MonthlyFeeEntity,
   FinanceSummary,
   MarkFeeAsPaidInput,
-} from 'src/entitys/monthly-fee.entity';
-import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+} from '../../entitys/monthly-fee.entity';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
 @Resolver(() => MonthlyFeeEntity)
 @UseGuards(GqlAuthGuard, RolesGuard)

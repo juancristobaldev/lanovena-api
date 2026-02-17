@@ -8,7 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateProductInput,
   UpdateProductInput,
-} from 'src/entitys/product.entity';
+} from '../../entitys/product.entity';
 
 @Injectable()
 export class ProductsService {

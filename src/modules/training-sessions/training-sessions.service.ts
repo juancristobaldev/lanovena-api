@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AttendanceStatus, Prisma } from '@prisma/client';
-import { CreateTrainingSessionInput } from 'src/entitys/training-session.entity';
+import { CreateTrainingSessionInput } from '../../entitys/training-session.entity';
 
 @Injectable()
 export class TrainingSessionsService {

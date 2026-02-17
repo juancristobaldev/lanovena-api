@@ -18,13 +18,13 @@ import {
   PlayerFinancialStatus,
   PlayerStats,
   UpdatePlayerInput,
-} from 'src/entitys/player.entity';
-import { GqlAuthGuard } from 'src/auth/guards/gql-auth.guard';
-import { Roles } from 'src/auth/decorators/roles.decorator';
-import { RolesGuard } from 'src/auth/guards/roles.guard';
+} from '../../entitys/player.entity';
+import { GqlAuthGuard } from '../../auth/guards/gql-auth.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
+import { RolesGuard } from '../../auth/guards/roles.guard';
 import { PlayersService } from './players.service';
-import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
-import { UserEntity } from 'src/entitys/user.entity';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { UserEntity } from '../../entitys/user.entity';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Resolver(() => PlayerEntity)

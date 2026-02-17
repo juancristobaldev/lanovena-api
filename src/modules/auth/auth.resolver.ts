@@ -3,15 +3,15 @@ import { UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 
 import { User as PrismaUser } from '@prisma/client';
-import { UserEntity } from 'src/entitys/user.entity';
-import { GqlAuthGuard } from 'src/auth/guards/gql-auth.guard';
-import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import { UserEntity } from '../../entitys/user.entity';
+import { GqlAuthGuard } from '../../auth/guards/gql-auth.guard';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import {
   AuthResponse,
   LoginInput,
   OnboardingStepInput,
   RegisterInput,
-} from 'src/entitys/auth.entity';
+} from '../../entitys/auth.entity';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Resolver(() => AuthResponse)

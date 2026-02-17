@@ -13,7 +13,7 @@ import {
   AuthResponse,
   LoginInput,
   RegisterInput,
-} from 'src/entitys/auth.entity';
+} from '../../entitys/auth.entity';
 
 @Injectable()
 export class AuthService {

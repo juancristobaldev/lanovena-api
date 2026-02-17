@@ -1,17 +1,17 @@
 import { Resolver, Query, Mutation, Args, ID, Context } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
-import { GqlAuthGuard } from 'src/auth/guards/gql-auth.guard';
-import { RolesGuard } from 'src/auth/guards/roles.guard';
-import { Roles } from 'src/auth/decorators/roles.decorator';
+import { GqlAuthGuard } from '../../auth/guards/gql-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 import { Role } from '@prisma/client';
 import { CategoriesService } from './categories.service';
 import {
   CategoryEntity,
   CreateCategoryInput,
   UpdateCategoryInput,
-} from 'src/entitys/category.entity';
-import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
-import { UserEntity } from 'src/entitys/user.entity';
+} from '../../entitys/category.entity';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { UserEntity } from '../../entitys/user.entity';
 
 @Resolver(() => CategoryEntity)
 @UseGuards(GqlAuthGuard, RolesGuard)

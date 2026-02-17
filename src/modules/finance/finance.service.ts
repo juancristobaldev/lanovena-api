@@ -5,7 +5,10 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { FinanceSummary, PaymentMethod } from 'src/entitys/monthly-fee.entity';
+import {
+  FinanceSummary,
+  PaymentMethod,
+} from '../../entitys/monthly-fee.entity';
 import { PaymentStatus } from '@prisma/client';
 
 @Injectable()

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateEvaluationInput } from 'src/entitys/evaluation.entity';
+import { CreateEvaluationInput } from '../../entitys/evaluation.entity';
 
 @Injectable()
 export class EvaluationsService {

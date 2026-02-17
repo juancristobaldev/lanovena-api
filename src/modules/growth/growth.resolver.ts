@@ -1,13 +1,13 @@
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { ReferralsService } from './referrals/referrals.service';
 import { SponsorshipsService } from './sponsorship/sponsorship.service';
-import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { User } from '@prisma/client';
 import {
   CreateSponsorshipInput,
   Referral,
   Sponsorship,
-} from 'src/entitys/growth.entity';
+} from '../../entitys/growth.entity';
 
 @Resolver()
 export class GrowthResolver {

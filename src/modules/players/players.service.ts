@@ -7,7 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   CreatePlayerInput,
   UpdatePlayerInput,
-} from 'src/entitys/player.entity';
+} from '../../entitys/player.entity';
 import { Role } from '@prisma/client';
 
 @Injectable()

@@ -7,7 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateCategoryInput,
   UpdateCategoryInput,
-} from 'src/entitys/category.entity';
+} from '../../entitys/category.entity';
 import { Role } from '@prisma/client';
 
 @Injectable()

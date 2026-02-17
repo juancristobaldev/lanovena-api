@@ -30,7 +30,8 @@ import { TacticalBoardModule } from './modules/tactical-board/tactical-board.mod
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
-      playground: true, // Importante para probar
+      playground: true, // <--- Habilita esto si quieres ver el playground en prod
+      introspection: true, // <--- Necesario para que el playground funcione
     }),
     SchoolsModule,
     UsersModule,

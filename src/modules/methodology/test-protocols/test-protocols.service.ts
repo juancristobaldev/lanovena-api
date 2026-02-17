@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { CreateTestProtocolInput } from 'src/entitys/methodology.entity';
+import { CreateTestProtocolInput } from '../../../entitys/methodology.entity';
 
 @Injectable()
 export class TestProtocolsService {

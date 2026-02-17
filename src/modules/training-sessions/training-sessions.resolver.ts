@@ -5,14 +5,14 @@ import {
   CreateTrainingSessionInput,
   TrainingSessionEntity,
   UpdateTrainingSessionInput,
-} from 'src/entitys/training-session.entity';
-import { RolesGuard } from 'src/auth/guards/roles.guard';
-import { GqlAuthGuard } from 'src/auth/guards/gql-auth.guard';
+} from '../../entitys/training-session.entity';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { GqlAuthGuard } from '../../auth/guards/gql-auth.guard';
 import { AttendanceStatus, Role } from '@prisma/client';
-import { Roles } from 'src/auth/decorators/roles.decorator';
-import { AttendanceEntity } from 'src/entitys/attendace-session.entity';
-import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
-import { UserEntity } from 'src/entitys/user.entity';
+import { Roles } from '../../auth/decorators/roles.decorator';
+import { AttendanceEntity } from '../../entitys/attendace-session.entity';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { UserEntity } from '../../entitys/user.entity';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Resolver(() => TrainingSessionEntity)

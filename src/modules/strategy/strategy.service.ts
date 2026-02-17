@@ -7,7 +7,7 @@ import { PrismaService } from '../prisma/prisma.service'; // Ajusta tu ruta de P
 import {
   CreateStrategyInput,
   UpdateStrategyInput,
-} from 'src/entitys/strategy.entity';
+} from '../../entitys/strategy.entity';
 
 @Injectable()
 export class StrategyService {

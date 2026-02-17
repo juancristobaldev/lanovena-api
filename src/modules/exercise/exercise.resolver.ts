@@ -1,15 +1,15 @@
 import { Resolver, Query, Mutation, Args, Context } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 
-import { Roles } from 'src/auth/decorators/roles.decorator';
+import { Roles } from '../../auth/decorators/roles.decorator';
 import {
   CreateExerciseInput,
   ExerciseEntity,
-} from 'src/entitys/exercise.entity';
-import { GqlAuthGuard } from 'src/auth/guards/gql-auth.guard';
+} from '../../entitys/exercise.entity';
+import { GqlAuthGuard } from '../../auth/guards/gql-auth.guard';
 import { Role } from '@prisma/client';
-import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
-import { UserEntity } from 'src/entitys/user.entity';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { UserEntity } from '../../entitys/user.entity';
 import { ExerciseService } from './exercise.service';
 import { PrismaService } from '../prisma/prisma.service';
 

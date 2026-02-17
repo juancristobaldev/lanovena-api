@@ -6,7 +6,7 @@ import { TestProtocolsService } from './test-protocols/test-protocols.service';
 import {
   CreateTestProtocolInput,
   TestProtocol,
-} from 'src/entitys/methodology.entity';
+} from '../../entitys/methodology.entity';
 
 @Resolver()
 @UseGuards(GqlAuthGuard)

@@ -7,8 +7,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateTacticalBoardInput,
   UpdateTacticalBoardInput,
-} from 'src/entitys/tactical-board.entity'; // Asegúrate que la ruta sea correcta
-import { UserEntity } from 'src/entitys/user.entity';
+} from '../../entitys/tactical-board.entity'; // Asegúrate que la ruta sea correcta
+import { UserEntity } from '../../entitys/user.entity';
 
 @Injectable()
 export class TacticalBoardService {

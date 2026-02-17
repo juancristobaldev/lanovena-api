@@ -10,7 +10,7 @@ import {
   CreateStrategyInput,
   Strategy,
   UpdateStrategyInput,
-} from 'src/entitys/strategy.entity';
+} from '../../entitys/strategy.entity';
 
 @Resolver(() => Strategy)
 @UseGuards(GqlAuthGuard) // Protege todas las rutas de este resolver

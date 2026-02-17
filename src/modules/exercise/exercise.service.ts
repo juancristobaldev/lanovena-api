@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CreateExerciseInput } from 'src/entitys/exercise.entity';
-import { UserEntity } from 'src/entitys/user.entity';
+import { UserEntity } from '../../entitys/user.entity';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()

@@ -12,14 +12,14 @@ import {
   CreateUserInput,
   UpdateUserInput,
   UserEntity,
-} from 'src/entitys/user.entity';
-import { GqlAuthGuard } from 'src/auth/guards/gql-auth.guard';
-import { RolesGuard } from 'src/auth/guards/roles.guard';
+} from '../../entitys/user.entity';
+import { GqlAuthGuard } from '../../auth/guards/gql-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Role } from '@prisma/client';
-import { Roles } from 'src/auth/decorators/roles.decorator';
+import { Roles } from '../../auth/decorators/roles.decorator';
 import { UsersService } from './users.service';
-import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
-import { CoachEntity } from 'src/entitys/coach.entity';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { CoachEntity } from '../../entitys/coach.entity';
 
 @Resolver(() => UserEntity)
 @UseGuards(GqlAuthGuard, RolesGuard)

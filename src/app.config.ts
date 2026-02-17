@@ -1,27 +1,20 @@
-import 'reflect-metadata';
-
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { INestApplication } from '@nestjs/common';
 import { json, urlencoded } from 'express';
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-
+export function configureApp(app: INestApplication) {
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ extended: true, limit: '50mb' }));
 
   app.enableCors({
     origin: [
-      'http://localhost:3000', // Next.js
+      'http://localhost:3000',
       'http://127.0.0.1:3000',
       'https://lanovena.pro',
       'https://www.lanovena.pro',
+      // Agrega dominios adicionales aquí
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   });
-
-  await app.listen(process.env.PORT ?? 4000);
 }
-bootstrap();

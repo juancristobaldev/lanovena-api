@@ -15,12 +15,14 @@ import {
   ResourceUsage,
   SchoolEntity,
   UpdateSchoolInput,
-} from 'src/entitys/school.entity';
-import { Roles } from 'src/auth/decorators/roles.decorator';
+} from '../../entitys/school.entity';
+
 import { PlanType, Role, SchoolMode, User } from '@prisma/client';
-import { GqlAuthGuard } from 'src/auth/guards/gql-auth.guard';
-import { RolesGuard } from 'src/auth/guards/roles.guard';
-import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { Roles } from '../../auth/decorators/roles.decorator';
+import { GqlAuthGuard } from '../../auth/guards/gql-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
 import { SchoolsService } from './schools.service';
 import { PrismaService } from '../prisma/prisma.service';
 

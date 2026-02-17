@@ -11,15 +11,15 @@ import {
 import { UseGuards } from '@nestjs/common';
 
 // Guards y Decoradores de tu sistema de Auth
-import { GqlAuthGuard } from 'src/auth/guards/gql-auth.guard';
-import { Roles } from 'src/auth/decorators/roles.decorator';
+import { GqlAuthGuard } from '../../auth/guards/gql-auth.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 import {
   CreateMatchInput,
   MatchEntity,
   UpdateMatchInput,
-} from 'src/entitys/match.entity';
+} from '../../entitys/match.entity';
 import { Role } from '@prisma/client';
-import { CategoryEntity } from 'src/entitys/category.entity';
+import { CategoryEntity } from '../../entitys/category.entity';
 import { MatchService } from './match.service';
 
 @Resolver(() => MatchEntity)

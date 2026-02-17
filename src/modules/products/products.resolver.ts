@@ -5,15 +5,15 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
-import { ProductEntity } from 'src/entitys/product.entity';
+import { ProductEntity } from '../../entitys/product.entity';
 import {
   CreateProductInput,
   UpdateProductInput,
-} from 'src/entitys/product.entity';
-import { RolesGuard } from 'src/auth/guards/roles.guard';
-import { GqlAuthGuard } from 'src/auth/guards/gql-auth.guard';
+} from '../../entitys/product.entity';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { GqlAuthGuard } from '../../auth/guards/gql-auth.guard';
 import { Role } from '@prisma/client';
-import { Roles } from 'src/auth/decorators/roles.decorator';
+import { Roles } from '../../auth/decorators/roles.decorator';
 
 @Resolver(() => ProductEntity)
 @UseGuards(GqlAuthGuard, RolesGuard)

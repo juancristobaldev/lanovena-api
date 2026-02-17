@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { CreateSponsorshipInput } from 'src/entitys/growth.entity';
+import { CreateSponsorshipInput } from '../../../entitys/growth.entity';
 
 @Injectable()
 export class SponsorshipsService {

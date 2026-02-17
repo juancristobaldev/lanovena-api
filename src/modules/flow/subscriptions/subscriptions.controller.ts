@@ -10,9 +10,9 @@ import {
 
 import { User, Role } from '@prisma/client';
 import { FlowService } from '../flow.service';
-import { PrismaService } from 'src/modules/prisma/prisma.service';
-import { GqlAuthGuard } from 'src/auth/guards/gql-auth.guard';
-import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import { PrismaService } from '../../../modules/prisma/prisma.service';
+import { GqlAuthGuard } from '../../../auth/guards/gql-auth.guard';
+import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
 
 @Controller('flow/subscription')
 export class SubscriptionController {

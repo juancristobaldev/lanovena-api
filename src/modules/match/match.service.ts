@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateMatchInput, UpdateMatchInput } from 'src/entitys/match.entity';
-import { UserEntity } from 'src/entitys/user.entity';
+import { CreateMatchInput, UpdateMatchInput } from '../../entitys/match.entity';
+import { UserEntity } from '../../entitys/user.entity';
 
 @Injectable()
 export class MatchService {

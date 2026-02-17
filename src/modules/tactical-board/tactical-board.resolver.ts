@@ -1,18 +1,18 @@
 import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
-import { GqlAuthGuard } from 'src/auth/guards/gql-auth.guard';
-import { RolesGuard } from 'src/auth/guards/roles.guard';
-import { Roles } from 'src/auth/decorators/roles.decorator';
+import { GqlAuthGuard } from '../../auth/guards/gql-auth.guard';
+import { RolesGuard } from '../../auth/guards/roles.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 import { Role } from '@prisma/client';
-import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
 import { TacticalBoardService } from './tactical-board.service';
 import {
   CreateTacticalBoardInput,
   TacticalBoardEntity,
   UpdateTacticalBoardInput,
-} from 'src/entitys/tactical-board.entity';
-import { UserEntity } from 'src/entitys/user.entity';
+} from '../../entitys/tactical-board.entity';
+import { UserEntity } from '../../entitys/user.entity';
 
 @Resolver(() => TacticalBoardEntity)
 @UseGuards(GqlAuthGuard, RolesGuard)

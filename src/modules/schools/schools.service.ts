@@ -10,7 +10,7 @@ import {
   CreateBenefitInput,
   ResourceUsage,
   SchoolEntity,
-} from 'src/entitys/school.entity';
+} from '../../entitys/school.entity';
 
 @Injectable()
 export class SchoolsService {
