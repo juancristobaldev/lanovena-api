@@ -14,13 +14,10 @@ export class FlowService {
   private readonly apiUrl: string;
   private readonly logger = new Logger(FlowService.name);
 
-  constructor(
-    private readonly configService: ConfigService,
-    private readonly httpService: HttpService,
-  ) {
-    this.apiKey = this.configService.get<string>('FLOW_API_KEY') || '';
-    this.secretKey = this.configService.get<string>('FLOW_SECRET_KEY') || '';
-    this.apiUrl = this.configService.get<string>('FLOW_API_URL') || '';
+    constructor(private readonly httpService: HttpService) {
+    this.apiKey = process.env.FLOW_API_KEY || '';
+    this.secretKey = process.env.FLOW_SECRET_KEY || '';
+    this.apiUrl = process.env.FLOW_API_URL || '';
   }
 
   /* ======================================================

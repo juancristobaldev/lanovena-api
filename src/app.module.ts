@@ -24,17 +24,19 @@ import { StrategyModule } from './modules/strategy/strategy.module';
 import { MatchModule } from './modules/match/match.module';
 import { ExerciseModule } from './modules/exercise/exercise.module';
 import { TacticalBoardModule } from './modules/tactical-board/tactical-board.module';
+import { ConfigModule } from '@nestjs/config';
 @Module({
   imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
 GraphQLModule.forRoot<ApolloDriverConfig>({
   driver: ApolloDriver,
-  autoSchemaFile: process.env.NODE_ENV === 'production'
-    ? true
-    : join(process.cwd(), 'src/schema.gql'),
+      autoSchemaFile: join(process.cwd(), 'src/schema.gql'), // ← ruta donde se genera
+
   // 🚀 OPTIMIZACIÓN: Desactiva esto en producción para arrancar más rápido
-  playground: false, 
-  sortSchema: false,
-  introspection: false,
+  
+  sortSchema: true, // opcional: ordena tipos para mejor lectura
+      playground: true, // habilita Playground
+      debug: true,
 }),
     SchoolsModule,
     UsersModule,

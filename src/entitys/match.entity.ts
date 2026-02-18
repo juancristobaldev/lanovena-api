@@ -15,22 +15,22 @@ export class MatchEntity {
   @Field(() => ID)
   id: string;
 
-  @Field()
+  @Field(() => String)
   rivalName: string;
 
-  @Field()
+  @Field(() => Date)
   date: Date;
 
-  @Field()
+  @Field(() => Boolean)
   isHome: boolean;
 
-  @Field({ nullable: true })
+  @Field(() => String,{ nullable: true })
   location?: string;
 
-  @Field()
+  @Field(() => String)
   categoryId: string;
 
-  @Field({ nullable: true })
+  @Field(() => String,{ nullable: true })
   notes?: string;
 
   // RELACIONES

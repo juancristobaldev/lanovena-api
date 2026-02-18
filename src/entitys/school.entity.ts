@@ -134,7 +134,7 @@ export class SchoolStaff {
   @Field(() => SchoolRole)
   role: SchoolRole;
 
-  @Field()
+  @Field(() => Date)
   createdAt: Date;
 }
 

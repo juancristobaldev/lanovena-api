@@ -34,10 +34,10 @@ export class MonthlyFeeEntity {
   @Field(() => Float)
   amount: number;
 
-  @Field()
+  @Field(() => Date)
   dueDate: Date;
 
-  @Field({ nullable: true })
+  @Field(() => Date,{ nullable: true })
   paymentDate?: Date;
 
   @Field(() => PaymentStatus)
@@ -52,7 +52,7 @@ export class MonthlyFeeEntity {
   @Field(() => Int)
   year: number;
 
-  @Field()
+  @Field(() => String)
   schoolId: string;
 
   @Field(() => PlayerEntity)

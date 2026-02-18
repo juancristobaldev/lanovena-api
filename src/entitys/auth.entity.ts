@@ -14,25 +14,25 @@ export class AuthResponse {
 
 @InputType()
 export class LoginInput {
-  @Field()
+  @Field(() => String)
   email: string;
 
-  @Field()
+  @Field(() => String)
   password: string;
 }
 
 @InputType()
 export class RegisterInput {
-  @Field()
+  @Field(() => String)
   email: string;
 
-  @Field()
+  @Field(() => String)
   password: string;
 
-  @Field()
+  @Field(() => String)
   fullName: string;
 
-  @Field({ nullable: true })
+  @Field(() => String,{ nullable: true })
   phone?: string;
 }
 

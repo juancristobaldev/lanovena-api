@@ -5,12 +5,12 @@ import { UserEntity } from './user.entity';
 
 @InputType()
 export class CreateStrategyInput {
-  @Field()
+  @Field(() => String)
   @IsNotEmpty()
   @IsString()
   title: string;
 
-  @Field({ nullable: true })
+  @Field(() => String,{ nullable: true })
   @IsOptional()
   @IsString()
   description?: string;
@@ -19,7 +19,7 @@ export class CreateStrategyInput {
   @IsNotEmpty()
   tokens: any; // Recibe el array de fichas [{id, x, y, type...}]
 
-  @Field({ nullable: true })
+  @Field(() => String,{ nullable: true })
   @IsOptional()
   @IsString()
   drawingData?: string; // String Base64
@@ -27,7 +27,7 @@ export class CreateStrategyInput {
 
 @InputType()
 export class UpdateStrategyInput extends PartialType(CreateStrategyInput) {
-  @Field()
+  @Field(() => String)
   id: string;
 }
 
@@ -36,25 +36,25 @@ export class Strategy {
   @Field(() => String)
   id: string;
 
-  @Field()
+  @Field(() => String)
   title: string;
 
-  @Field({ nullable: true })
+  @Field(() => String,{ nullable: true })
   description?: string;
 
   @Field(() => GraphQLJSON)
   tokens: any;
 
-  @Field({ nullable: true })
+  @Field(() => String,{ nullable: true })
   drawingData?: string;
 
-  @Field()
+  @Field(() => Date)
   createdAt: Date;
 
-  @Field()
+  @Field(() => Date)
   updatedAt: Date;
 
-  @Field()
+  @Field(() => String)
   coachId: string;
 
   @Field(() => UserEntity)

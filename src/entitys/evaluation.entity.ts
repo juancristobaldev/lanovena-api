@@ -4,7 +4,7 @@ import { PlayerEntity } from './player.entity';
 
 @InputType()
 export class CreateEvaluationInput {
-  @Field()
+  @Field(() => String)
   @IsNotEmpty()
   @IsString()
   type: string; // Ej: "VELOCIDAD_30M"
@@ -13,12 +13,12 @@ export class CreateEvaluationInput {
   @IsNumber()
   value: number; // Ej: 4.5
 
-  @Field()
+  @Field(() => String)
   @IsNotEmpty()
   @IsString()
   unit: string; // Ej: "seg"
 
-  @Field()
+  @Field(() => String)
   @IsUUID()
   playerId: string;
 }
@@ -28,16 +28,16 @@ export class EvaluationEntity {
   @Field(() => String)
   id: string;
 
-  @Field()
+  @Field(() => String)
   type: string;
 
   @Field(() => Float)
   value: number;
 
-  @Field()
+  @Field(() => String)
   unit: string;
 
-  @Field()
+  @Field(() => Date)
   date: Date;
 
   @Field(() => PlayerEntity)

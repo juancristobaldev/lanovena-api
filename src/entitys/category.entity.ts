@@ -21,18 +21,18 @@ export class CategoryEntity {
   @Field(() => ID)
   id: string;
 
-  @Field()
+  @Field(() => String)
   name: string;
 
   @Field(() => CategoryType)
   type: CategoryType;
   @Field(() => [PlayerEntity])
-  players: PlayerEntity[];
-  @Field()
+  players?: PlayerEntity[];
+  @Field(() => String)
   schoolId: string;
 
   @Field(() => [TrainingSessionEntity], { nullable: true })
-  sessions?: TrainingSessionEntity;
+  sessions?: TrainingSessionEntity[];
 
   @Field(() => [MatchEntity], { nullable: true })
   matches?: MatchEntity[];
@@ -40,13 +40,13 @@ export class CategoryEntity {
 
 @InputType()
 export class CreateCategoryInput {
-  @Field()
+  @Field(() => String)
   name: string;
 
   @Field(() => CategoryType, { defaultValue: CategoryType.FORMATIVA })
   type: CategoryType;
 
-  @Field()
+  @Field(() => String)
   schoolId: string;
 
   // No pedimos schoolId aquí, lo sacamos del usuario logueado por seguridad
@@ -54,7 +54,7 @@ export class CreateCategoryInput {
 
 @InputType()
 export class UpdateCategoryInput {
-  @Field({ nullable: true })
+  @Field(() => String,{ nullable: true })
   name?: string;
 
   @Field(() => CategoryType, { nullable: true })

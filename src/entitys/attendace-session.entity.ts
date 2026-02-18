@@ -18,10 +18,10 @@ export class AttendanceEntity {
   @Field(() => AttendanceStatus)
   status: AttendanceStatus;
 
-  @Field({ nullable: true })
+  @Field(() => String,{ nullable: true })
   notes?: string;
 
-  @Field()
+  @Field(() => Date)
   createdAt: Date;
 
   // RELACIONES

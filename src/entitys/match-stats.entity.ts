@@ -13,10 +13,10 @@ export class MatchStatEntity {
   @Field(() => Int)
   assists: number;
 
-  @Field()
+  @Field(() => String)
   matchId: string;
 
-  @Field()
+  @Field(() => String)
   playerId: string;
 
   // RELACIONES

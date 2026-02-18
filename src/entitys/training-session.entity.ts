@@ -18,6 +18,8 @@ registerEnumType(SessionStatus, {
   name: 'SessionStatus',
 });
 
+
+
 @ObjectType()
 export class SessionTacticalBoardEntity {
   @Field(() => ID)

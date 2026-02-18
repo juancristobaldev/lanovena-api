@@ -13,7 +13,7 @@ export class CoachEntity {
   @Field(() => UserEntity)
   user: UserEntity;
 
-  @Field({ nullable: true })
+  @Field(() => String,{ nullable: true })
   bio?: string;
 
   // Relación con Categorías (M:N)
@@ -25,6 +25,6 @@ export class CoachEntity {
 // Nota: Las categorías suelen asignarse por ID en una mutación aparte o input especial
 @InputType()
 export class UpdateCoachProfileInput {
-  @Field({ nullable: true })
+  @Field(() => String,{ nullable: true })
   bio?: string;
 }

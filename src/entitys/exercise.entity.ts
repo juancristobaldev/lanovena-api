@@ -27,17 +27,17 @@ registerEnumType(ExerciseDifficulty, {
 
 @InputType()
 export class CreateExerciseInput {
-  @Field()
+  @Field(() => String)
   @IsString()
   @IsNotEmpty()
   title: string;
 
-  @Field()
+  @Field(() => String)
   @IsString()
   @IsNotEmpty()
   description: string;
 
-  @Field({ nullable: true })
+  @Field(() => String,{ nullable: true })
   @IsString()
   @IsOptional()
   objective: string;
@@ -48,12 +48,12 @@ export class CreateExerciseInput {
   @IsOptional()
   difficulty: ExerciseDifficulty;
 
-  @Field({ nullable: true })
+  @Field(() => String,{ nullable: true })
   @IsUrl()
   @IsOptional()
   videoUrl?: string;
 
-  @Field({ nullable: true })
+  @Field(() => String,{ nullable: true })
   @IsUrl()
   @IsOptional()
   imageUrl?: string;

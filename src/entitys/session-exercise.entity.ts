@@ -20,7 +20,7 @@ export class SessionExerciseEntity {
   })
   orderIndex: number;
 
-  @Field({ nullable: true })
+  @Field(() => String,{ nullable: true })
   specificNotes?: string;
 
   // RELACIONES

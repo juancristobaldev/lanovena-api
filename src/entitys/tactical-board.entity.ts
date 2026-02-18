@@ -48,12 +48,12 @@ export class TacticalBoardEntity {
 
 @InputType()
 export class CreateTacticalBoardInput {
-  @Field()
+  @Field(() => String)
   @IsString()
   @IsNotEmpty()
   title: string;
 
-  @Field({ nullable: true })
+  @Field(() => String,{ nullable: true })
   @IsString()
   @IsOptional()
   description?: string;
