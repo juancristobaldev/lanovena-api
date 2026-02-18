@@ -27,14 +27,20 @@ import { TacticalBoardModule } from './modules/tactical-board/tactical-board.mod
 
 @Module({
   imports: [
-    GraphQLModule.forRoot<ApolloDriverConfig>({
-      driver: ApolloDriver,
-      autoSchemaFile: process.env.NODE_ENV === 'production'
-        ? true
-        : join(process.cwd(), 'src/schema.gql'),
-      playground: true, // <--- Habilita esto si quieres ver el playground en prod
-      introspection: true, // <--- Necesario para que el playground funcione
-    }),
+  GraphQLModule.forRoot<ApolloDriverConfig>({
+  driver: ApolloDriver,
+  // 2. CAMBIA ESTA LÍNEA:
+  // Antes: autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
+  
+  // AHORA: Usa lógica condicional
+  autoSchemaFile: process.env.NODE_ENV === 'production'
+    ? true // En Vercel: Genera en memoria (RAM)
+    : join(process.cwd(), 'src/schema.gql'), // En Local: Genera el archivo físico
+    
+  sortSchema: true,
+  playground: true,
+  introspection: true,
+}),
     SchoolsModule,
     UsersModule,
     PlayersModule,
