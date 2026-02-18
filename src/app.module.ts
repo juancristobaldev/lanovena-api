@@ -24,7 +24,6 @@ import { StrategyModule } from './modules/strategy/strategy.module';
 import { MatchModule } from './modules/match/match.module';
 import { ExerciseModule } from './modules/exercise/exercise.module';
 import { TacticalBoardModule } from './modules/tactical-board/tactical-board.module';
-//dsass
 @Module({
   imports: [
 GraphQLModule.forRoot<ApolloDriverConfig>({
@@ -32,7 +31,6 @@ GraphQLModule.forRoot<ApolloDriverConfig>({
   autoSchemaFile: process.env.NODE_ENV === 'production'
     ? true
     : join(process.cwd(), 'src/schema.gql'),
-  
   // 🚀 OPTIMIZACIÓN: Desactiva esto en producción para arrancar más rápido
   playground: false, 
   sortSchema: false,
