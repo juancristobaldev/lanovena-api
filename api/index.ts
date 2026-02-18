@@ -5,43 +5,48 @@ import serverless from 'serverless-http';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import express from 'express';
 
-const expressApp = express();
+// Variable global para guardar el servidor "caliente"
+let cachedServer: any;
 
 const bootstrap = async () => {
-  const app = await NestFactory.create(
-    AppModule,
-    new ExpressAdapter(expressApp),
-  );
+  // Si ya existe, no lo inicies de nuevo (Ahorra tiempo y recursos)
+  if (!cachedServer) {
+    const expressApp = express();
+    const app = await NestFactory.create(
+      AppModule,
+      new ExpressAdapter(expressApp),
+    );
 
-  // Copia aquí tus configuraciones de main.ts (CORS, Pipes, etc.)
-  app.enableCors({
-    origin: [
-      'http://localhost:3000',
-      'https://lanovena.pro',
-      'https://www.lanovena.pro',
-    ],
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  });
+    app.enableCors({
+      origin: [
+        'http://localhost:3000',
+        'https://lanovena.pro',
+        'https://www.lanovena.pro',
+      ],
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+    });
+    
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
+
+    await app.init();
+    
+    // Guardamos la instancia lista en la variable global
+    cachedServer = serverless(expressApp);
+  }
   
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
-
-  await app.init();
+  return cachedServer;
 };
 
-bootstrap();
-
-export const config = {
-  api: {
-    bodyParser: false,
-  },
+// La función que exportamos ahora espera a que bootstrap termine o devuelva la caché
+export default async (req: any, res: any) => {
+  const handler = await bootstrap();
+  return handler(req, res);
 };
-
-export default serverless(expressApp);
