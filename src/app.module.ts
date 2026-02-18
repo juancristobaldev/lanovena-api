@@ -24,7 +24,7 @@ import { StrategyModule } from './modules/strategy/strategy.module';
 import { MatchModule } from './modules/match/match.module';
 import { ExerciseModule } from './modules/exercise/exercise.module';
 import { TacticalBoardModule } from './modules/tactical-board/tactical-board.module';
-
+//dsass
 @Module({
   imports: [
 GraphQLModule.forRoot<ApolloDriverConfig>({
