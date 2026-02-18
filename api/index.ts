@@ -46,12 +46,13 @@ const bootstrap = async () => {
 
 // 🚨 ¡ESTO ES LO QUE FALTABA! 🚨
 // Le dice a Vercel: "No toques el body de la petición, déjaselo a NestJS"
+// api/index.ts
 export const config = {
   api: {
-    bodyParser: false,
+    bodyParser: false, // Necesario para que GraphQL maneje sus propios streams
+    externalResolver: true,
   },
 };
-
 export default async (req: any, res: any) => {
   const handler = await bootstrap();
   return handler(req, res);

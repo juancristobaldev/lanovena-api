@@ -34,9 +34,9 @@ GraphQLModule.forRoot<ApolloDriverConfig>({
     : join(process.cwd(), 'src/schema.gql'),
   
   // 🚀 OPTIMIZACIÓN: Desactiva esto en producción para arrancar más rápido
-  playground: process.env.NODE_ENV !== 'production', 
-  sortSchema: process.env.NODE_ENV !== 'production',
-  introspection: process.env.NODE_ENV !== 'production',
+  playground: false, 
+  sortSchema: false,
+  introspection: false,
 }),
     SchoolsModule,
     UsersModule,
