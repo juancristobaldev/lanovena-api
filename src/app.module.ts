@@ -27,19 +27,16 @@ import { TacticalBoardModule } from './modules/tactical-board/tactical-board.mod
 
 @Module({
   imports: [
-  GraphQLModule.forRoot<ApolloDriverConfig>({
+GraphQLModule.forRoot<ApolloDriverConfig>({
   driver: ApolloDriver,
-  // 2. CAMBIA ESTA LÍNEA:
-  // Antes: autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
-  
-  // AHORA: Usa lógica condicional
   autoSchemaFile: process.env.NODE_ENV === 'production'
-    ? true // En Vercel: Genera en memoria (RAM)
-    : join(process.cwd(), 'src/schema.gql'), // En Local: Genera el archivo físico
-    
-  sortSchema: true,
-  playground: true,
-  introspection: true,
+    ? true
+    : join(process.cwd(), 'src/schema.gql'),
+  
+  // 🚀 OPTIMIZACIÓN: Desactiva esto en producción para arrancar más rápido
+  playground: process.env.NODE_ENV !== 'production', 
+  sortSchema: process.env.NODE_ENV !== 'production',
+  introspection: process.env.NODE_ENV !== 'production',
 }),
     SchoolsModule,
     UsersModule,
