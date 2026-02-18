@@ -29,7 +29,9 @@ import { TacticalBoardModule } from './modules/tactical-board/tactical-board.mod
   imports: [
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
-      autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
+      autoSchemaFile: process.env.NODE_ENV === 'production'
+        ? true
+        : join(process.cwd(), 'src/schema.gql'),
       playground: true, // <--- Habilita esto si quieres ver el playground en prod
       introspection: true, // <--- Necesario para que el playground funcione
     }),
