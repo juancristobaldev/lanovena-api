@@ -40,7 +40,7 @@ export class PlayersResolver {
   @Roles(Role.DIRECTOR)
   @Mutation(() => PlayerEntity)
   createPlayer(
-    @Args('input') input: CreatePlayerInput,
+    @Args('input',{type:() => CreatePlayerInput}) input: CreatePlayerInput,
     @CurrentUser() user: UserEntity,
   ) {
     return this.playersService.create(input, user);

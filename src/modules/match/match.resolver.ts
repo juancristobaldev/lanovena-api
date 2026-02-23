@@ -32,7 +32,7 @@ export class MatchResolver {
   @Mutation(() => MatchEntity)
   @Roles(Role.DIRECTOR, Role.COACH) // Solo Directores y Entrenadores
   createMatch(
-    @Args('input') createMatchInput: CreateMatchInput,
+    @Args('input', {type:() => CreateMatchInput}) createMatchInput: CreateMatchInput,
     @Context() context: any,
   ) {
     return this.matchesService.create(createMatchInput, context.req.user);

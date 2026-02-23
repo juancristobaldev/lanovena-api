@@ -16,6 +16,7 @@ import {
   Matches,
 } from 'class-validator';
 import { UserEntity } from './user.entity';
+import { CategoryEntity } from './category.entity';
 
 // 1. Registrar Enums para GraphQL
 registerEnumType(SchoolMode, { name: 'SchoolMode' });
@@ -114,6 +115,9 @@ export class SchoolEntity {
 
   @Field(() => CountSchool)
   _count: CountSchool;
+
+  @Field(() => [CategoryEntity], { nullable: true })
+  categories?: CategoryEntity[];
 }
 
 // src/graphql/entities/school-staff.entity.ts

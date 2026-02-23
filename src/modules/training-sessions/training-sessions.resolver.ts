@@ -1,5 +1,10 @@
 import { Resolver, Mutation, Query, Args, ID, Int } from '@nestjs/graphql';
-import { UseGuards, UnauthorizedException } from '@nestjs/common';
+import {
+  UseGuards,
+  UnauthorizedException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { TrainingSessionsService } from './training-sessions.service';
 import {
   CreateTrainingSessionInput,
@@ -14,6 +19,7 @@ import { AttendanceEntity } from '../../entitys/attendace-session.entity';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { UserEntity } from '../../entitys/user.entity';
 import { PrismaService } from '../prisma/prisma.service';
+import { SchoolEntity } from '@/entitys/school.entity';
 
 @Resolver(() => TrainingSessionEntity)
 @UseGuards(GqlAuthGuard, RolesGuard)
@@ -22,6 +28,50 @@ export class TrainingSessionsResolver {
     private readonly trainingSessionsService: TrainingSessionsService,
     private readonly prisma: PrismaService, // Inyectamos Prisma
   ) {}
+
+  @Query(() => SchoolEntity, { name: 'getCalendarOfSchool' })
+  @Roles(Role.DIRECTOR, Role.SUPERADMIN)
+  async getCalendarOfSchool(
+    @Args('schoolId', { type: () => ID }) schoolId: string,
+    @CurrentUser() user: UserEntity,
+  ) {
+    // 1. Verificación de Permisos
+    // Un SUPERADMIN tiene acceso total.
+    // Otros roles (DIRECTOR/COACH) solo pueden ver el calendario si el schoolId coincide con el suyo.
+    const isSuperAdmin = user.role === Role.SUPERADMIN;
+
+    const schoolStaff = await this.prisma.schoolStaff.findFirst({
+      where: {
+        userId: user.id,
+        schoolId,
+      },
+    });
+
+    const isAuthorizedStaff = user.role === Role.DIRECTOR && schoolStaff;
+
+    if (!isSuperAdmin && !isAuthorizedStaff) {
+      throw new ForbiddenException(
+        'No tienes permiso para acceder al calendario de esta escuela.',
+      );
+    }
+
+    // 2. Obtención de datos
+    // Se recomienda que el service maneje la lógica de "include" de Prisma
+    // para traer Categorías -> Sesiones y Partidos.
+    const school = await this.prisma.school.findUnique({
+      where: { id: schoolId },
+      include: {
+        categories: {
+          include: {
+            sessions: true, // Trae los entrenamientos
+            matches: true, // Trae los partidos
+          },
+        },
+      },
+    });
+    if (!school) throw new NotFoundException('Escuela no encontrada');
+    return school;
+  }
 
   @Mutation(() => TrainingSessionEntity)
   @Roles(Role.COACH, Role.DIRECTOR)
@@ -100,7 +150,8 @@ export class TrainingSessionsResolver {
   @Mutation(() => TrainingSessionEntity)
   @Roles(Role.COACH, Role.DIRECTOR) // Agregué Director por si acaso
   async createTrainingSession(
-    @Args('input') input: CreateTrainingSessionInput,
+    @Args('input', { type: () => CreateTrainingSessionInput })
+    input: CreateTrainingSessionInput,
     @CurrentUser() user: UserEntity,
   ) {
     // Obtenemos el ID real, ya sea del user o del staff
