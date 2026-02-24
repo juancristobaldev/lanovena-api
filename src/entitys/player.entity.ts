@@ -18,6 +18,7 @@ import { CategoryEntity } from './category.entity';
 import { UserEntity } from './user.entity';
 import { PaymentStatus } from '@prisma/client';
 import { SchoolEntity } from './school.entity';
+import { AttendanceEntity } from './attendace-session.entity';
 
 registerEnumType(PaymentStatus, {
   name: 'PaymentStatus',
@@ -106,6 +107,9 @@ export class PlayerEntity {
   @Field(() => String)
   qrCodeToken: string;
 
+  @Field(() => String)
+  position: string;
+
   @Field(() => ID)
   categoryId: string;
 
@@ -122,6 +126,9 @@ export class PlayerEntity {
   guardian?: UserEntity;
   @Field(() => String)
   guardianId: string;
+
+  @Field(() => [AttendanceEntity], { nullable: true })
+  attendace?: AttendanceEntity[];
 
   @Field(() => PlayerStats, { nullable: true })
   stats?: PlayerStats;

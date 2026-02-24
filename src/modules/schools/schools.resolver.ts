@@ -13,6 +13,7 @@ import {
   CreateBenefitInput,
   CreateSchoolInput,
   ResourceUsage,
+  SchoolDirectoryResponse,
   SchoolEntity,
   UpdateSchoolInput,
 } from '../../entitys/school.entity';
@@ -42,6 +43,15 @@ export class SchoolsResolver {
    * Crear nueva escuela (Tenant)
    * SOLO SuperAdmin
    */
+
+  @Query(() => SchoolDirectoryResponse, { name: 'getSchoolDirectory' })
+  @Roles(Role.DIRECTOR, Role.SUPERADMIN) // Solo directores y superadmins pueden ver todo el directorio
+  async getSchoolDirectory(
+    @Args('schoolId', { type: () => String }) schoolId: string,
+  ) {
+    return this.schoolsService.getSchoolDirectory(schoolId);
+  }
+
   @Mutation(() => SchoolEntity)
   @Roles(Role.DIRECTOR)
   createSchool(

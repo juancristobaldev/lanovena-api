@@ -17,6 +17,7 @@ import {
 } from 'class-validator';
 import { UserEntity } from './user.entity';
 import { CategoryEntity } from './category.entity';
+import { PlayerEntity } from './player.entity';
 
 // 1. Registrar Enums para GraphQL
 registerEnumType(SchoolMode, { name: 'SchoolMode' });
@@ -118,6 +119,24 @@ export class SchoolEntity {
 
   @Field(() => [CategoryEntity], { nullable: true })
   categories?: CategoryEntity[];
+}
+
+@ObjectType()
+export class SchoolDirectoryResponse {
+  @Field(() => [UserEntity], {
+    description: 'Lista de entrenadores de la escuela',
+  })
+  coaches: UserEntity[];
+
+  @Field(() => [UserEntity], {
+    description: 'Lista de apoderados de la escuela',
+  })
+  guardians: UserEntity[];
+
+  @Field(() => [PlayerEntity], {
+    description: 'Lista de jugadores de la escuela',
+  })
+  players: PlayerEntity[];
 }
 
 // src/graphql/entities/school-staff.entity.ts

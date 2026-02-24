@@ -15,6 +15,13 @@ enum ExerciseDifficulty {
   ADVANCED
 }
 
+enum PlayerPosition {
+  GK    // Arquero
+  DEF   // Defensa
+  MID   // Volante
+  FW    // Delantero
+}
+
 enum Role {
   SUPERADMIN
   DIRECTOR
@@ -156,7 +163,26 @@ model School {
   
   // Gestión Interna
   tasks             Task[]
+
+  notices Notice[]
 }
+
+model Notice {
+  id        String   @id @default(uuid())
+  title     String
+  summary   String
+  content   String   @db.Text
+  image     String?
+  status    String   @default("draft") // "draft" | "published"
+  views     Int      @default(0)
+  
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 
 model Category {
   id       String       @id @default(uuid())
@@ -232,7 +258,7 @@ model Player {
   medicalInfo String?  @db.Text
   active      Boolean  @default(true)
   scholarship Boolean  @default(false)
-
+position    PlayerPosition @default(DEF) // <--- Agregar este campo
   qrCodeToken String @unique @default(uuid())
 
   schoolId   String
@@ -534,7 +560,7 @@ model Task {
   description String?      @db.Text
   status      TaskStatus   @default(TODO)
   priority    TaskPriority @default(MEDIUM)
-  
+  position    Int          // <-- Nuevo campo añadido
   dueDate     DateTime?
   
   schoolId    String

@@ -107,6 +107,15 @@ input CreateMatchInput {
   status: String
 }
 
+input CreateNoticeInput {
+  content: String!
+  image: String
+  schoolId: String!
+  status: String! = "draft"
+  summary: String!
+  title: String!
+}
+
 input CreatePlayerInput {
   birthDate: DateTime!
   categoryId: ID!
@@ -298,18 +307,21 @@ type Mutation {
   createExercise(input: CreateExerciseInput!, schoolId: String!): ExerciseEntity!
   createGuardian(input: CreateUserInput!): UserEntity!
   createMatch(input: CreateMatchInput!): MatchEntity!
+  createNotice(input: CreateNoticeInput!): NoticeEntity!
   createPlayer(input: CreatePlayerInput!): PlayerEntity!
   createProduct(input: CreateProductInput!): ProductEntity!
   createSchool(input: CreateSchoolInput!): SchoolEntity!
   createSponsorship(input: CreateSponsorshipInput!): Sponsorship!
   createStrategy(createStrategyInput: CreateStrategyInput!): Strategy!
   createTacticalBoard(input: CreateTacticalBoardInput!): TacticalBoardEntity!
+  createTask(assignedToUserId: String, description: String, schoolId: String!, title: String!): Task!
   createTestProtocol(input: CreateTestProtocolInput!): TestProtocol!
   createTrainingSession(input: CreateTrainingSessionInput!): TrainingSessionEntity!
   createUser(input: CreateUserInput!): UserEntity!
   deactivateSchool(schoolId: ID!): SchoolEntity!
   deactivateUser(userId: String!): Boolean!
   deleteBenefit(id: ID!): Benefit!
+  deleteNotice(id: ID!): NoticeEntity!
 
   """👑 GOD MODE: SuperAdmin inicia sesión como otro usuario"""
   impersonateUser(targetUserId: String!): AuthResponse!
@@ -317,6 +329,7 @@ type Mutation {
   """Inicio de sesión unificado (Director, Coach, Admin)"""
   login(input: LoginInput!): AuthResponse!
   markFeeAsPaid(input: MarkFeeAsPaidInput!): MonthlyFeeEntity!
+  moveTask(id: String!, newPosition: Int!, newStatus: String!): Task!
   ratePlayerPerformance(notes: String, playerId: String!, rating: Int!, sessionId: String!): AttendanceEntity!
 
   """Registro de nueva cuenta (Generalmente para Directores)"""
@@ -334,6 +347,7 @@ type Mutation {
   togglePlayerActive(playerId: String!): PlayerEntity!
   updateCategory(id: String!, input: UpdateCategoryInput!): CategoryEntity!
   updateMatch(input: UpdateMatchInput!): MatchEntity!
+  updateNotice(id: ID!, input: UpdateNoticeInput!): NoticeEntity!
 
   """Actualiza el paso del wizard de onboarding"""
   updateOnboardingStep(input: OnboardingStepInput!): Boolean!
@@ -354,6 +368,18 @@ type NextEvent {
   location: String
   title: String!
   type: EventType!
+}
+
+type NoticeEntity {
+  content: String!
+  createdAt: DateTime!
+  id: ID!
+  image: String
+  schoolId: String!
+  status: String!
+  summary: String!
+  title: String!
+  views: Int!
 }
 
 input OnboardingStepInput {
@@ -385,6 +411,7 @@ enum PlanType {
 
 type PlayerEntity {
   active: Boolean!
+  attendace: [AttendanceEntity!]
   birthDate: DateTime!
   category: CategoryEntity
   categoryId: ID!
@@ -397,6 +424,7 @@ type PlayerEntity {
   medicalInfo: String
   nextEvent: NextEvent
   photoUrl: String
+  position: String!
   qrCodeToken: String!
   scholarship: Boolean!
   school: SchoolEntity
@@ -434,12 +462,14 @@ type Query {
   activeBanners(location: String!): [Sponsorship!]!
   activeProducts: [ProductEntity!]!
   allSponsorships: [Sponsorship!]!
+  boardTasks(schoolId: String!): [Task!]!
   categories(schoolId: String): [CategoryEntity!]!
   category(id: String!): CategoryEntity!
   coaches(schoolId: ID): [UserEntity!]!
   financeSummary(month: Int!, schoolId: ID!, year: Int!): FinanceSummary!
   getCalendarOfSchool(schoolId: ID!): SchoolEntity!
   getMyPlayersCarnet: UserEntity!
+  getSchoolDirectory(schoolId: String!): SchoolDirectoryResponse!
 
   """Lista de tests estandarizados globales"""
   globalTestProtocols: [TestProtocol!]!
@@ -458,6 +488,8 @@ type Query {
   mySchool: SchoolEntity!
   mySchoolExercises(schoolId: String!): [ExerciseEntity!]!
   myStrategies: [Strategy!]!
+  notice(id: ID!, schoolId: ID!): NoticeEntity!
+  notices(schoolId: ID!): [NoticeEntity!]!
   playerProfile(playerId: String!): PlayerEntity!
   playersByCategory(categoryId: String!): [PlayerEntity!]!
   playersByGuardian(guardianId: String!): [PlayerEntity!]!
@@ -527,6 +559,17 @@ type ResourceUsage {
   currentPlayers: Int!
   maxCategories: Int!
   maxPlayers: Int!
+}
+
+type SchoolDirectoryResponse {
+  """Lista de entrenadores de la escuela"""
+  coaches: [UserEntity!]!
+
+  """Lista de apoderados de la escuela"""
+  guardians: [UserEntity!]!
+
+  """Lista de jugadores de la escuela"""
+  players: [PlayerEntity!]!
 }
 
 type SchoolEntity {
@@ -647,6 +690,37 @@ type TacticalBoardEntity {
   updatedAt: DateTime!
 }
 
+"""Entidad de Tarea para el Kanban del Staff"""
+type Task {
+  assignedToUserId: String
+  createdAt: DateTime!
+  description: String
+  dueDate: DateTime
+  id: ID!
+
+  """Índice visual para el Drag & Drop"""
+  position: Int!
+  priority: TaskPriority!
+  schoolId: String!
+  status: TaskStatus!
+  title: String!
+  updatedAt: DateTime!
+}
+
+"""Nivel de urgencia de la tarea"""
+enum TaskPriority {
+  HIGH
+  LOW
+  MEDIUM
+}
+
+"""Estado de la tarea en el tablero Kanban"""
+enum TaskStatus {
+  DONE
+  IN_PROGRESS
+  TODO
+}
+
 """Protocolo estandarizado de evaluación física/técnica"""
 type TestProtocol {
   """JSON String con tablas de baremos (edad vs nota)"""
@@ -695,6 +769,15 @@ input UpdateMatchInput {
 
   """Estado inicial del partido (SCHEDULED, PLAYED, etc)"""
   status: String
+}
+
+input UpdateNoticeInput {
+  content: String
+  image: String
+  schoolId: String!
+  status: String
+  summary: String
+  title: String
 }
 
 input UpdatePlayerInput {

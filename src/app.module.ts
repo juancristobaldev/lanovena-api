@@ -25,19 +25,21 @@ import { MatchModule } from './modules/match/match.module';
 import { ExerciseModule } from './modules/exercise/exercise.module';
 import { TacticalBoardModule } from './modules/tactical-board/tactical-board.module';
 import { ConfigModule } from '@nestjs/config';
+import { TasksKanbanModule } from './modules/tasks-kanban/tasks-kanban.module';
+import { NoticesModule } from './modules/notices/notices.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-GraphQLModule.forRoot<ApolloDriverConfig>({
-  driver: ApolloDriver,
+    GraphQLModule.forRoot<ApolloDriverConfig>({
+      driver: ApolloDriver,
       autoSchemaFile: join(process.cwd(), 'src/schema.gql'), // ← ruta donde se genera
 
-  // 🚀 OPTIMIZACIÓN: Desactiva esto en producción para arrancar más rápido
-  
-  sortSchema: true, // opcional: ordena tipos para mejor lectura
+      // 🚀 OPTIMIZACIÓN: Desactiva esto en producción para arrancar más rápido
+
+      sortSchema: true, // opcional: ordena tipos para mejor lectura
       playground: true, // habilita Playground
       debug: true,
-}),
+    }),
     SchoolsModule,
     UsersModule,
     PlayersModule,
@@ -57,6 +59,8 @@ GraphQLModule.forRoot<ApolloDriverConfig>({
     MatchModule,
     ExerciseModule,
     TacticalBoardModule,
+    TasksKanbanModule,
+    NoticesModule,
   ],
   controllers: [AppController],
   providers: [AppService, TasksService],

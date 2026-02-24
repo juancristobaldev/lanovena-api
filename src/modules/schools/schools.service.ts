@@ -4,7 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { Prisma, School, SchoolMode, PlanType } from '@prisma/client';
+import { Prisma, School, SchoolMode, PlanType, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateBenefitInput,
@@ -15,6 +15,57 @@ import {
 @Injectable()
 export class SchoolsService {
   constructor(private prisma: PrismaService) {}
+
+  async getSchoolDirectory(schoolId: string) {
+    // 1. Validar que la escuela existe
+    const school = await this.prisma.school.findUnique({
+      where: { id: schoolId },
+    });
+    if (!school) throw new NotFoundException('Escuela no encontrada');
+
+    // 2. Obtener Entrenadores (incluyendo su perfil y categorías)
+    const coaches = await this.prisma.user.findMany({
+      where: {
+        schoolId: schoolId,
+        role: Role.COACH,
+      },
+      include: {
+        coachProfile: {
+          include: {
+            categories: true,
+          },
+        },
+      },
+    });
+
+    // 3. Obtener Apoderados (incluyendo a los jugadores a su cargo)
+    const guardians = await this.prisma.user.findMany({
+      where: {
+        schoolId: schoolId,
+        role: Role.GUARDIAN,
+      },
+      include: {
+        managedPlayers: true,
+      },
+    });
+
+    // 4. Obtener Jugadores (incluyendo su categoría y datos de su apoderado)
+    const players = await this.prisma.player.findMany({
+      where: {
+        schoolId: schoolId,
+      },
+      include: {
+        category: true,
+        guardian: true,
+      },
+    });
+
+    return {
+      coaches,
+      guardians,
+      players,
+    };
+  }
 
   // ===========================================================================
   // 1. CREATE (Creación y Onboarding)

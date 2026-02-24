@@ -206,6 +206,7 @@ export class UsersResolver {
       include: {
         managedPlayers: {
           include: {
+            attendance: true,
             school: true,
             category: {
               include: {
