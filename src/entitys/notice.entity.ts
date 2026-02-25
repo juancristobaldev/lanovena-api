@@ -53,9 +53,6 @@ export class CreateNoticeInput {
 
 @InputType()
 export class UpdateNoticeInput {
-  @Field()
-  schoolId: string;
-
   @Field({ nullable: true })
   title?: string;
 

@@ -112,6 +112,13 @@ export class UsersService {
 
   async findGuardians(schoolId: string) {
     return this.prisma.user.findMany({
+      include: {
+        managedPlayers: {
+          include: {
+            category: true,
+          },
+        },
+      },
       where: {
         role: Role.GUARDIAN,
         schoolId,

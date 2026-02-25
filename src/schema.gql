@@ -774,7 +774,6 @@ input UpdateMatchInput {
 input UpdateNoticeInput {
   content: String
   image: String
-  schoolId: String!
   status: String
   summary: String
   title: String
