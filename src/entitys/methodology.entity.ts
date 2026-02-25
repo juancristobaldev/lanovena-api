@@ -1,38 +1,47 @@
-import { ObjectType, Field, ID, InputType } from '@nestjs/graphql';
+import {
+  ObjectType,
+  Field,
+  ID,
+  InputType,
+  registerEnumType,
+} from '@nestjs/graphql';
+import { EvaluationCategory, MeasurementUnit } from '@prisma/client';
+import {
+  IsBoolean,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 // ==========================================
 // 1. ENTIDADES (Object Types para GraphQL)
 // ==========================================
 
-@ObjectType({
-  description: 'Protocolo estandarizado de evaluación física/técnica',
-})
-export class TestProtocol {
-  @Field(() => ID)
+registerEnumType(EvaluationCategory, { name: 'EvaluationCategory' });
+registerEnumType(MeasurementUnit, { name: 'MeasurementUnit' });
+
+@ObjectType()
+export class TestProtocolEntity {
+  @Field(() => String)
   id: string;
 
-  @Field(() => String, {
-    description: 'Nombre del test (Ej: Yo-Yo Recovery L1)',
-  })
+  @Field(() => String)
   name: string;
 
-  @Field(() => String, { description: 'Instrucciones de ejecución' })
+  @Field(() => String)
   description: string;
 
-  @Field(() => String, {
-    description: 'Unidad de medida (cm, seg, repeticiones)',
-  })
-  unit: string;
+  @Field(() => EvaluationCategory)
+  category: EvaluationCategory;
 
-  @Field(() => Boolean, {
-    description: 'Si es visible para todas las escuelas',
-  })
+  @Field(() => MeasurementUnit)
+  unit: MeasurementUnit;
+
+  @Field(() => Boolean)
   isGlobal: boolean;
 
-  @Field(() => String, {
-    nullable: true,
-    description: 'JSON String con tablas de baremos (edad vs nota)',
-  })
+  @Field(() => String, { nullable: true })
   baremoJson?: string;
 }
 
@@ -41,17 +50,74 @@ export class TestProtocol {
 // ==========================================
 
 // --- Inputs para Tests ---
-@InputType({ description: 'Datos para crear un nuevo protocolo de test' })
+@InputType()
 export class CreateTestProtocolInput {
   @Field(() => String)
-  name: string;
+  @IsNotEmpty()
+  @IsString()
+  name: string; // Ej: "Yo-Yo Test Intermitente"
 
   @Field(() => String)
-  description: string;
+  @IsNotEmpty()
+  @IsString()
+  description: string; // Ej: "Correr 20 metros al ritmo del sonido..."
 
-  @Field(() => String)
-  unit: string;
+  @Field(() => EvaluationCategory)
+  @IsEnum(EvaluationCategory)
+  category: EvaluationCategory;
+
+  @Field(() => MeasurementUnit)
+  @IsEnum(MeasurementUnit)
+  unit: MeasurementUnit;
+
+  @Field(() => Boolean, { nullable: true, defaultValue: true })
+  @IsOptional()
+  @IsBoolean()
+  isGlobal?: boolean; // Si es true, lo ven todas las escuelas.
 
   @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  baremoJson?: string; // JSON con las tablas de referencia (opcional)
+}
+
+// ====================================================================
+// Input para ACTUALIZAR un Protocolo de Test (Opcional pero recomendado)
+// ====================================================================
+@InputType()
+export class UpdateTestProtocolInput {
+  @Field(() => String)
+  @IsNotEmpty()
+  @IsString()
+  id: string;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @Field(() => EvaluationCategory, { nullable: true })
+  @IsOptional()
+  @IsEnum(EvaluationCategory)
+  category?: EvaluationCategory;
+
+  @Field(() => MeasurementUnit, { nullable: true })
+  @IsOptional()
+  @IsEnum(MeasurementUnit)
+  unit?: MeasurementUnit;
+
+  @Field(() => Boolean, { nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  isGlobal?: boolean;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
   baremoJson?: string;
 }

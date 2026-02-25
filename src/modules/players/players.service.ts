@@ -86,6 +86,11 @@ export class PlayersService {
   async findByCategory(categoryId: string, schoolId: string) {
     return this.prisma.player.findMany({
       where: { categoryId, schoolId },
+      include: {
+        category: true,
+        guardian: true,
+        evaluations: true,
+      },
       orderBy: { lastName: 'asc' },
     });
   }
@@ -121,6 +126,12 @@ export class PlayersService {
       include: {
         category: true,
         guardian: true,
+        attendance: true,
+        evaluations: {
+          include: {
+            protocol: true,
+          },
+        },
       },
     });
 
@@ -128,10 +139,22 @@ export class PlayersService {
 
     const staff = await this.prisma.schoolStaff.findFirst({
       where: {
-        userId: user.id,
-        schoolId: player?.schoolId || '',
+        OR: [
+          { userId: user.id, schoolId: player?.schoolId || '' },
+          {
+            school: {
+              users: {
+                some: {
+                  id: user?.id,
+                  role: Role.COACH,
+                },
+              },
+            },
+          },
+        ],
       },
     });
+
     if (!staff) {
       throw new ForbiddenException('Acceso denegado');
     }

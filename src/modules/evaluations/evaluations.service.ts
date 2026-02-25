@@ -6,29 +6,39 @@ import { CreateEvaluationInput } from '../../entitys/evaluation.entity';
 export class EvaluationsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createEvaluationInput: CreateEvaluationInput) {
+  async create(input: CreateEvaluationInput) {
     return this.prisma.evaluation.create({
       data: {
-        type: createEvaluationInput.type,
-        value: createEvaluationInput.value,
-        unit: createEvaluationInput.unit,
-        player: {
-          connect: { id: createEvaluationInput.playerId },
+        value: input.value,
+        notes: input.notes,
+        protocol: {
+          connect: { id: input.protocolId }, // ✅ Conectamos con el TestProtocol
         },
-        date: new Date(),
+        player: {
+          connect: { id: input.playerId },
+        },
+        session: {
+          connect: {
+            id: input.sessionId,
+          },
+        },
       },
       include: {
-        player: true, // Devolvemos el jugador para actualizar la UI si es necesario
+        protocol: true, // ✅ Incluimos el protocolo para que GraphQL devuelva nombre y unidad
+        player: true,
       },
     });
   }
 
-  // Para ver el historial de un alumno (Gráficos de progreso)
+  // Para ver el historial de un alumno (Gráficos de progreso y Radar)
   async findAllByPlayer(playerId: string) {
     return this.prisma.evaluation.findMany({
       where: { playerId },
       orderBy: { date: 'desc' },
-      include: { player: true },
+      include: {
+        protocol: true, // Crucial para los gráficos
+        player: true,
+      },
     });
   }
 }

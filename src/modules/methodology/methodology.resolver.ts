@@ -5,7 +5,7 @@ import { GqlAuthGuard } from '../../auth/guards/gql-auth.guard';
 import { TestProtocolsService } from './test-protocols/test-protocols.service';
 import {
   CreateTestProtocolInput,
-  TestProtocol,
+  TestProtocolEntity,
 } from '../../entitys/methodology.entity';
 
 @Resolver()
@@ -16,19 +16,16 @@ export class MethodologyResolver {
   // ============================
   // QUERIES
   // ============================
-
-  @Query(() => [TestProtocol], {
-    description: 'Lista de tests estandarizados globales',
-  })
-  async globalTestProtocols() {
-    return this.testProtocolsService.findAll();
+  @Query(() => [TestProtocolEntity])
+  async getAvailableTestProtocols() {
+    return this.testProtocolsService.findAllGlobals();
   }
 
   // ============================
   // MUTATIONS (TESTS)
   // ============================
 
-  @Mutation(() => TestProtocol)
+  @Mutation(() => TestProtocolEntity)
   async createTestProtocol(@Args('input') input: CreateTestProtocolInput) {
     // TODO: Agregar validación de Rol SUPERADMIN aquí si se requiere
     return this.testProtocolsService.create(input);

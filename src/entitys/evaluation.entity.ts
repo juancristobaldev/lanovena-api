@@ -1,22 +1,34 @@
 import { InputType, Field, Float, ObjectType } from '@nestjs/graphql';
-import { IsNotEmpty, IsString, IsNumber, IsUUID } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsUUID,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 import { PlayerEntity } from './player.entity';
+import { TestProtocolEntity } from './methodology.entity';
 
 @InputType()
 export class CreateEvaluationInput {
   @Field(() => String)
+  @IsUUID()
   @IsNotEmpty()
-  @IsString()
-  type: string; // Ej: "VELOCIDAD_30M"
+  protocolId: string; // ✅ Ahora solo pasamos el ID del protocolo
+
+  @Field(() => String)
+  @IsUUID()
+  @IsNotEmpty()
+  sessionId: string;
 
   @Field(() => Float)
   @IsNumber()
-  value: number; // Ej: 4.5
+  value: number;
 
-  @Field(() => String)
-  @IsNotEmpty()
+  @Field(() => String, { nullable: true })
+  @IsOptional()
   @IsString()
-  unit: string; // Ej: "seg"
+  notes?: string;
 
   @Field(() => String)
   @IsUUID()
@@ -28,17 +40,17 @@ export class EvaluationEntity {
   @Field(() => String)
   id: string;
 
-  @Field(() => String)
-  type: string;
-
   @Field(() => Float)
   value: number;
 
-  @Field(() => String)
-  unit: string;
+  @Field(() => String, { nullable: true })
+  notes?: string;
 
   @Field(() => Date)
   date: Date;
+
+  @Field(() => TestProtocolEntity)
+  protocol: TestProtocolEntity; // ✅ Devuelve los detalles del Test (Nombre, Unidad, Categoría)
 
   @Field(() => PlayerEntity)
   player: PlayerEntity;

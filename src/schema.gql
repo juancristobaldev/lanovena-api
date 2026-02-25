@@ -86,6 +86,14 @@ input CreateCategoryInput {
   type: CategoryType! = FORMATIVA
 }
 
+input CreateEvaluationInput {
+  notes: String
+  playerId: String!
+  protocolId: String!
+  sessionId: String!
+  value: Float!
+}
+
 input CreateExerciseInput {
   description: String!
   difficulty: ExerciseDifficulty
@@ -124,6 +132,7 @@ input CreatePlayerInput {
   lastName: String!
   medicalInfo: String
   photoUrl: String
+  position: PlayerPosition!
   scholarship: Boolean = false
   schoolId: ID!
 }
@@ -176,12 +185,13 @@ input CreateTacticalBoardInput {
   title: String!
 }
 
-"""Datos para crear un nuevo protocolo de test"""
 input CreateTestProtocolInput {
   baremoJson: String
+  category: EvaluationCategory!
   description: String!
+  isGlobal: Boolean = true
   name: String!
-  unit: String!
+  unit: MeasurementUnit!
 }
 
 input CreateTrainingSessionInput {
@@ -213,6 +223,23 @@ input CreateUserInput {
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
 scalar DateTime
+
+enum EvaluationCategory {
+  MENTAL
+  PHYSICAL
+  SPEED
+  TACTICAL
+  TECHNICAL
+}
+
+type EvaluationEntity {
+  date: DateTime!
+  id: String!
+  notes: String
+  player: PlayerEntity!
+  protocol: TestProtocolEntity!
+  value: Float!
+}
 
 """Tipo de evento próximo: Partido o Entrenamiento"""
 enum EventType {
@@ -285,6 +312,15 @@ type MatchStatEntity {
   playerId: String!
 }
 
+enum MeasurementUnit {
+  CENTIMETERS
+  COUNT
+  METERS
+  PERCENTAGE
+  POINTS
+  SECONDS
+}
+
 type MonthlyFeeEntity {
   amount: Float!
   dueDate: DateTime!
@@ -304,6 +340,7 @@ type Mutation {
   createBenefit(input: CreateBenefitInput!): Benefit!
   createCategory(input: CreateCategoryInput!): CategoryEntity!
   createCoach(input: CreateUserInput!): UserEntity!
+  createEvaluation(createEvaluationInput: CreateEvaluationInput!): EvaluationEntity!
   createExercise(input: CreateExerciseInput!, schoolId: String!): ExerciseEntity!
   createGuardian(input: CreateUserInput!): UserEntity!
   createMatch(input: CreateMatchInput!): MatchEntity!
@@ -315,7 +352,7 @@ type Mutation {
   createStrategy(createStrategyInput: CreateStrategyInput!): Strategy!
   createTacticalBoard(input: CreateTacticalBoardInput!): TacticalBoardEntity!
   createTask(assignedToUserId: String, description: String, schoolId: String!, title: String!): Task!
-  createTestProtocol(input: CreateTestProtocolInput!): TestProtocol!
+  createTestProtocol(input: CreateTestProtocolInput!): TestProtocolEntity!
   createTrainingSession(input: CreateTrainingSessionInput!): TrainingSessionEntity!
   createUser(input: CreateUserInput!): UserEntity!
   deactivateSchool(schoolId: ID!): SchoolEntity!
@@ -411,10 +448,11 @@ enum PlanType {
 
 type PlayerEntity {
   active: Boolean!
-  attendace: [AttendanceEntity!]
+  attendance: [AttendanceEntity!]
   birthDate: DateTime!
   category: CategoryEntity
   categoryId: ID!
+  evaluations: [EvaluationEntity!]
   financialStatus: PlayerFinancialStatus
   firstName: String!
   guardian: UserEntity
@@ -436,6 +474,13 @@ type PlayerFinancialStatus {
   debtAmount: Float!
   lastPaymentDate: DateTime
   status: PaymentStatus!
+}
+
+enum PlayerPosition {
+  DEF
+  FW
+  GK
+  MID
 }
 
 type PlayerStats {
@@ -467,12 +512,11 @@ type Query {
   category(id: String!): CategoryEntity!
   coaches(schoolId: ID): [UserEntity!]!
   financeSummary(month: Int!, schoolId: ID!, year: Int!): FinanceSummary!
+  getAvailableTestProtocols: [TestProtocolEntity!]!
   getCalendarOfSchool(schoolId: ID!): SchoolEntity!
   getMyPlayersCarnet: UserEntity!
+  getPlayerEvaluations(playerId: String!): [EvaluationEntity!]!
   getSchoolDirectory(schoolId: String!): SchoolDirectoryResponse!
-
-  """Lista de tests estandarizados globales"""
-  globalTestProtocols: [TestProtocol!]!
   guardians(schoolId: ID): [UserEntity!]!
   guardiansBySchool(schoolId: String): [UserEntity!]!
   match(id: ID!): MatchEntity!
@@ -721,23 +765,14 @@ enum TaskStatus {
   TODO
 }
 
-"""Protocolo estandarizado de evaluación física/técnica"""
-type TestProtocol {
-  """JSON String con tablas de baremos (edad vs nota)"""
+type TestProtocolEntity {
   baremoJson: String
-
-  """Instrucciones de ejecución"""
+  category: EvaluationCategory!
   description: String!
-  id: ID!
-
-  """Si es visible para todas las escuelas"""
+  id: String!
   isGlobal: Boolean!
-
-  """Nombre del test (Ej: Yo-Yo Recovery L1)"""
   name: String!
-
-  """Unidad de medida (cm, seg, repeticiones)"""
-  unit: String!
+  unit: MeasurementUnit!
 }
 
 type TrainingSessionEntity {
@@ -788,6 +823,7 @@ input UpdatePlayerInput {
   lastName: String
   medicalInfo: String
   photoUrl: String
+  position: PlayerPosition
   scholarship: Boolean = false
   schoolId: ID
 }

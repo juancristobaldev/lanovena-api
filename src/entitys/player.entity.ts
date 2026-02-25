@@ -16,12 +16,17 @@ import {
 } from 'class-validator';
 import { CategoryEntity } from './category.entity';
 import { UserEntity } from './user.entity';
-import { PaymentStatus } from '@prisma/client';
+import { PaymentStatus, PlayerPosition } from '@prisma/client';
 import { SchoolEntity } from './school.entity';
 import { AttendanceEntity } from './attendace-session.entity';
+import { EvaluationEntity } from './evaluation.entity';
 
 registerEnumType(PaymentStatus, {
   name: 'PaymentStatus',
+});
+
+registerEnumType(PlayerPosition, {
+  name: 'PlayerPosition',
 });
 
 // 1. Definimos el Enum para saber qué tipo de evento es
@@ -128,13 +133,16 @@ export class PlayerEntity {
   guardianId: string;
 
   @Field(() => [AttendanceEntity], { nullable: true })
-  attendace?: AttendanceEntity[];
+  attendance?: AttendanceEntity[];
 
   @Field(() => PlayerStats, { nullable: true })
   stats?: PlayerStats;
 
   @Field(() => PlayerFinancialStatus, { nullable: true })
   financialStatus?: PlayerFinancialStatus;
+
+  @Field(() => [EvaluationEntity], { nullable: true })
+  evaluations?: EvaluationEntity[];
 
   @Field(() => NextEvent, { nullable: true })
   nextEvent?: NextEvent;
@@ -149,6 +157,9 @@ export class CreatePlayerInput {
   @Field(() => String)
   @IsString()
   lastName: string;
+
+  @Field(() => PlayerPosition)
+  position: PlayerPosition;
 
   @Field(() => Date)
   @IsDate()

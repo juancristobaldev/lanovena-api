@@ -7,12 +7,20 @@ export class TestProtocolsService {
   constructor(private prisma: PrismaService) {}
 
   // Crear un protocolo (Generalmente por SuperAdmin)
+
   async create(input: CreateTestProtocolInput) {
     return this.prisma.testProtocol.create({
       data: {
         ...input,
         isGlobal: true, // Por defecto asumimos que son creados para todos
       },
+    });
+  }
+
+  async findAllGlobals() {
+    return this.prisma.testProtocol.findMany({
+      where: { isGlobal: true },
+      orderBy: { category: 'asc' }, // Ordenados por categoría para agruparlos fácil en el UI
     });
   }
 

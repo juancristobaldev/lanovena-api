@@ -40,7 +40,7 @@ export class PlayersResolver {
   @Roles(Role.DIRECTOR)
   @Mutation(() => PlayerEntity)
   createPlayer(
-    @Args('input',{type:() => CreatePlayerInput}) input: CreatePlayerInput,
+    @Args('input', { type: () => CreatePlayerInput }) input: CreatePlayerInput,
     @CurrentUser() user: UserEntity,
   ) {
     return this.playersService.create(input, user);
@@ -110,43 +110,6 @@ export class PlayersResolver {
         closestEvent.location ||
         (type === 'MATCH' && closestEvent.isHome ? 'Casa' : 'Por definir'),
       isCitado: true, // Aquí podrías conectar tu lógica de asistencia real
-    };
-  }
-
-  @ResolveField(() => PlayerStats)
-  async stats(@Parent() player: PlayerEntity): Promise<PlayerStats> {
-    // 1. Obtener última asistencia (PRESENT)
-    const lastAttendanceRecord = await this.prisma.attendance.findFirst({
-      where: {
-        playerId: player.id,
-        status: 'PRESENT',
-      },
-      orderBy: {
-        session: { date: 'desc' },
-      },
-      include: { session: true },
-    });
-
-    // 2. Calcular Tasa de Asistencia (Últimos 3 meses o Total)
-    // Para simplificar, calculamos sobre el total de sesiones de su categoría
-    const totalSessions = await this.prisma.trainingSession.count({
-      where: { categoryId: player.categoryId },
-    });
-
-    const attendedSessions = await this.prisma.attendance.count({
-      where: {
-        playerId: player.id,
-        status: 'PRESENT',
-      },
-    });
-
-    // Evitar división por cero
-    const rate =
-      totalSessions > 0 ? (attendedSessions / totalSessions) * 100 : 0;
-
-    return {
-      attendanceRate: Math.round(rate),
-      lastAttendance: lastAttendanceRecord?.session?.date,
     };
   }
 
@@ -267,6 +230,42 @@ export class PlayersResolver {
     @CurrentUser() user: UserEntity,
   ) {
     return this.playersService.findProfile(playerId, user);
+  }
+  @ResolveField(() => PlayerStats)
+  async stats(@Parent() player: PlayerEntity): Promise<PlayerStats> {
+    // 1. Obtener última asistencia (PRESENT)
+    const lastAttendanceRecord = await this.prisma.attendance.findFirst({
+      where: {
+        playerId: player.id,
+        status: 'PRESENT',
+      },
+      orderBy: {
+        session: { date: 'desc' },
+      },
+      include: { session: true },
+    });
+
+    // 2. Calcular Tasa de Asistencia (Últimos 3 meses o Total)
+    // Para simplificar, calculamos sobre el total de sesiones de su categoría
+    const totalSessions = await this.prisma.trainingSession.count({
+      where: { categoryId: player.categoryId },
+    });
+
+    const attendedSessions = await this.prisma.attendance.count({
+      where: {
+        playerId: player.id,
+        status: 'PRESENT',
+      },
+    });
+
+    // Evitar división por cero
+    const rate =
+      totalSessions > 0 ? (attendedSessions / totalSessions) * 100 : 0;
+
+    return {
+      attendanceRate: Math.round(rate),
+      lastAttendance: lastAttendanceRecord?.session?.date,
+    };
   }
 
   @Roles(Role.COACH)
