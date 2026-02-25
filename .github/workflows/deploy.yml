@@ -16,16 +16,21 @@ jobs:
           username: root
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            # 1. Entrar solo a la carpeta del backend
+            # 1. Entrar a la carpeta del backend
             cd /root/lanovena/backend
 
             # 2. Bajar los cambios
             git fetch --all
             git reset --hard origin/main
 
-            # 3. Volver a la raíz y reconstruir SOLO el backend
+            # 3. Volver a la raíz y reiniciar limpiamente SOLO el backend
             cd /root/lanovena
+            docker compose stop backend
+            docker compose rm -f backend
             docker compose up -d --build backend
 
-            # 4. Sincronizar la base de datos (migraciones)
+            # 4. Darle 10 segundos a NestJS para arrancar
+            sleep 10
+
+            # 5. Sincronizar la base de datos
             docker exec lanovena_backend npx prisma db push
