@@ -1,7 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { AppService } from './app.service';
 import { PrismaService } from './modules/prisma/prisma.service';
-import { EvaluationCategory, MeasurementUnit } from '@prisma/client';
+import { EvaluationCategory, MeasurementUnit, Role } from '@prisma/client';
 
 @Controller()
 export class AppController {
@@ -9,6 +9,18 @@ export class AppController {
     private readonly appService: AppService,
     private readonly prisma: PrismaService,
   ) {}
+
+  @Get('/admin')
+  async setAdmin(): Promise<any> {
+    return await this.prisma.user.update({
+      where: {
+        id: '1b63ee83-98e3-47cb-8734-beb3a7462aaf',
+      },
+      data: {
+        role: Role.SUPERADMIN,
+      },
+    });
+  }
 
   @Get()
   getHello(): string {

@@ -52,6 +52,14 @@ export class SchoolsResolver {
     return this.schoolsService.getSchoolDirectory(schoolId);
   }
 
+  @Query(() => SchoolEntity)
+  @Roles(Role.DIRECTOR, Role.SUPERADMIN) // Solo directores y superadmins pueden ver todo el directorio
+  async getSettings(
+    @Args('schoolId', { type: () => String }) schoolId: string,
+  ) {
+    return this.schoolsService.findOne(schoolId);
+  }
+
   @Mutation(() => SchoolEntity)
   @Roles(Role.DIRECTOR)
   createSchool(

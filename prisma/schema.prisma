@@ -24,6 +24,7 @@ enum PlayerPosition {
 
 enum Role {
   SUPERADMIN
+  SUBADMIN
   DIRECTOR
   COACH
   GUARDIAN
@@ -86,6 +87,44 @@ enum TaskPriority {
   HIGH
 }
 
+model AdminAuditLog {
+  id String @id @default(uuid())
+
+  // ADMIN QUE EJECUTA LA ACCIÓN
+  adminId String
+  admin   User   @relation(fields: [adminId], references: [id])
+
+  // TIPO DE ACCIÓN
+  action String
+  // Ej: CREATE_SCHOOL, DELETE_USER, KILL_MODE, UPDATE_PLAN
+
+  // ENTIDAD AFECTADA
+  entity String
+  // Ej: School, User, Tournament, PlanLimit
+
+  entityId String?
+  // ID del objeto afectado
+
+  // ESTADO ANTERIOR Y NUEVO (AUDITORÍA REAL)
+  before Json?
+  after  Json?
+
+  // METADATA EXTRA
+  metadata Json?
+  // Ej:
+  // {
+  //   ip: "192.168.1.1",
+  //   userAgent: "...",
+  //   reason: "fraud"
+  // }
+
+  createdAt DateTime @default(now())
+
+  @@index([adminId])
+  @@index([entity])
+  @@index([createdAt])
+}
+
 model SchoolStaff {
   id String @id @default(uuid())
 
@@ -103,6 +142,92 @@ model SchoolStaff {
 }
 
 // 3. MODELOS PRINCIPALES
+// ==========================================
+// NUEVAS ENTIDADES
+// ==========================================
+// ==========================================
+// NUEVOS ENUMS PARA EL PANEL ADMIN
+// ==========================================
+
+enum MacroEntityType {
+  GOVERNMENTAL
+  PRIVATE_LEAGUE
+}
+
+enum LeagueFormat {
+  LARGO
+  CORTO
+  COPA
+}
+
+enum GlobalAssetType {
+  PDF
+  VIDEO
+  TACTICAL_BOARD
+}
+
+enum TargetAudience {
+  COACH
+  PLAYER
+  GUARDIAN
+}
+
+enum TournamentStatus {
+  PENDING_PAYMENT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+model MacroEntity {
+  id           String          @id @default(uuid())
+  name         String
+  type         MacroEntityType
+  schoolsLimit Int             @default(0)
+  isActive     Boolean         @default(true)
+
+  // Relaciones
+  adminId String   @unique // Un usuario SubAdmin por MacroEntidad
+  admin   User     @relation("MacroEntityAdmin", fields: [adminId], references: [id])
+  schools School[] // Escuelas que pertenecen a esta entidad
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Tournament {
+  id       String           @id @default(uuid())
+  name     String
+  format   LeagueFormat
+  settings Json? // Para guardar configs dinámicas (ruedas, ascensos, llaves)
+  status   TournamentStatus @default(PENDING_PAYMENT)
+
+  // Relaciones
+  organizerId String
+  organizer   User   @relation("TournamentOrganizer", fields: [organizerId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model GlobalAsset {
+  id             String          @id @default(uuid())
+  title          String
+  description    String?
+  type           GlobalAssetType
+  targetAudience TargetAudience
+  url            String
+  isActive       Boolean         @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SystemSetting {
+  key       String   @id // Ej: 'MAINTENANCE_MODE'
+  value     String // Ej: 'true' o 'false'
+  updatedAt DateTime @updatedAt
+}
 
 model User {
   id        String   @id @default(uuid())
@@ -124,8 +249,11 @@ model User {
   coachProfile   Coach?
   notifications  Notification[]
 
+  macroEntity   MacroEntity?    @relation("MacroEntityAdmin") // Si el user es SubAdmin
+  tournaments   Tournament[]    @relation("TournamentOrganizer") //
   // --- NUEVAS RELACIONES ---
-  assignedTasks Task[] @relation("UserTasks") // Tareas asignadas al usuario (Staff)
+  assignedTasks Task[]          @relation("UserTasks") // Tareas asignadas al usuario (Staff)
+  adminAuditLog AdminAuditLog[]
 }
 
 model School {
@@ -139,6 +267,8 @@ model School {
   subscriptionStatus String
   nextBillingDate    DateTime?
 
+  isActive Boolean? @default(true) // Usado para el "Kill Mode"
+
   users      User[]
   categories Category[]
   players    Player[]
@@ -147,7 +277,9 @@ model School {
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 
-  staff SchoolStaff[] // 👈 directores, coaches, etc.
+  macroEntityId String? // Opcional, porque pueden haber escuelas independientes
+  macroEntity   MacroEntity?  @relation(fields: [macroEntityId], references: [id])
+  staff         SchoolStaff[] // 👈 directores, coaches, etc.
 
   monthlyFees MonthlyFee[]
 
@@ -326,15 +458,15 @@ model Exercise {
 }
 
 model TrainingSession {
-  id         String         @id @default(uuid())
-  title      String?
-  location   String?
-  status     SessionStatus? @default(SCHEDULED)
-  date       DateTime
-  notes      String?
-  categoryId String
-  category   Category       @relation(fields: [categoryId], references: [id])
-  evaluations      Evaluation[]
+  id             String                 @id @default(uuid())
+  title          String?
+  location       String?
+  status         SessionStatus?         @default(SCHEDULED)
+  date           DateTime
+  notes          String?
+  categoryId     String
+  category       Category               @relation(fields: [categoryId], references: [id])
+  evaluations    Evaluation[]
   exercises      SessionExercise[]
   attendance     Attendance[]
   tacticalBoards SessionTacticalBoard[] // Relación con las pizarras
@@ -425,7 +557,7 @@ enum MeasurementUnit {
 // 2. NUEVO: Modelo de Protocolos (Tests Dinámicos)
 model TestProtocol {
   id          String @id @default(uuid())
-  name        String @unique// Ej: "Velocidad 30m"
+  name        String @unique // Ej: "Velocidad 30m"
   description String @db.Text
 
   category EvaluationCategory // ✅ Clasifica el test (Físico, Técnico, etc.)
@@ -453,8 +585,8 @@ model Evaluation {
   playerId String
   player   Player @relation(fields: [playerId], references: [id])
 
-  sessionId   String?
-  session     TrainingSession? @relation(fields: [sessionId], references: [id])
+  sessionId String?
+  session   TrainingSession? @relation(fields: [sessionId], references: [id])
 }
 
 model Strategy {
@@ -492,7 +624,7 @@ model MonthlyFee {
   playerId    String
   player      Player        @relation(fields: [playerId], references: [id])
   paymentDate DateTime?
-
+createdAt DateTime? @default(now())
   // --- NUEVA RELACIÓN DIRECTA (OPTIMIZACIÓN) ---
   schoolId      String
   school        School  @relation(fields: [schoolId], references: [id])

@@ -12,7 +12,7 @@ COPY . .
 
 # Generar Prisma y compilar NestJS
 RUN npx prisma generate
-RUN npm run build
+RUN NODE_OPTIONS="--max-old-space-size=1536" npm run build
 
 # Fase 2: Ejecución
 FROM node:20-slim AS runner

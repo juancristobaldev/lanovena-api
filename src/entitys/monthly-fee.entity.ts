@@ -34,10 +34,10 @@ export class MonthlyFeeEntity {
   @Field(() => Float)
   amount: number;
 
-  @Field(() => Date)
-  dueDate: Date;
+  @Field(() => Date, { nullable: true })
+  dueDate?: Date;
 
-  @Field(() => Date,{ nullable: true })
+  @Field(() => Date, { nullable: true })
   paymentDate?: Date;
 
   @Field(() => PaymentStatus)
@@ -55,8 +55,8 @@ export class MonthlyFeeEntity {
   @Field(() => String)
   schoolId: string;
 
-  @Field(() => PlayerEntity)
-  player: PlayerEntity;
+  @Field(() => PlayerEntity, { nullable: true })
+  player?: PlayerEntity;
 }
 
 // Objeto para los KPIs (Resumen Financiero)

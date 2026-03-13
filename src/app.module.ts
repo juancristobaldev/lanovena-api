@@ -27,6 +27,7 @@ import { TacticalBoardModule } from './modules/tactical-board/tactical-board.mod
 import { ConfigModule } from '@nestjs/config';
 import { TasksKanbanModule } from './modules/tasks-kanban/tasks-kanban.module';
 import { NoticesModule } from './modules/notices/notices.module';
+import { AdminModule } from './modules/admin/admin.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -61,6 +62,7 @@ import { NoticesModule } from './modules/notices/notices.module';
     TacticalBoardModule,
     TasksKanbanModule,
     NoticesModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService, TasksService],

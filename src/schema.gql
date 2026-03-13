@@ -2,6 +2,42 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+type AdminAuditLogObject {
+  action: String!
+  adminId: String!
+  createdAt: DateTime!
+  details: String
+  id: ID!
+}
+
+type AdminDashboardStats {
+  activeSchools: Int!
+  totalPlayers: Int!
+  totalRevenue: Float!
+  totalSchools: Int!
+  totalUsers: Int!
+}
+
+type AdminSchoolObject {
+  counts: CountSchool!
+  id: ID!
+  isActive: Boolean!
+  name: String!
+  nextBillingDate: DateTime
+  planType: PlanType!
+  slug: String!
+  subscriptionStatus: String!
+}
+
+type AdminUserObject {
+  createdAt: DateTime!
+  email: String!
+  fullName: String!
+  id: ID!
+  isActive: Boolean!
+  role: UserRole!
+}
+
 type AttendanceEntity {
   createdAt: DateTime!
   feedback: String
@@ -40,6 +76,22 @@ type Benefit {
   schoolId: String!
 
   """Título del beneficio (ej: Gratuidad Junaeb)"""
+  title: String!
+}
+
+type BillingOverviewObject {
+  amount: Float!
+  dueDate: DateTime!
+  id: ID!
+  player: UserEntity!
+  school: SchoolEntity!
+  status: PaymentStatus!
+}
+
+type BoardObject {
+  createdAt: DateTime!
+  id: ID!
+  tags: [String!]!
   title: String!
 }
 
@@ -101,6 +153,14 @@ input CreateExerciseInput {
   objective: String
   title: String!
   videoUrl: String
+}
+
+input CreateMacroEntityInput {
+  adminId: String!
+  isActive: Boolean! = true
+  name: String!
+  schoolsLimit: Int! = 0
+  type: MacroEntityType!
 }
 
 input CreateMatchInput {
@@ -267,6 +327,20 @@ type ExerciseEntity {
   videoUrl: String
 }
 
+type ExerciseObject {
+  createdAt: DateTime!
+  description: String
+  difficulty: ExerciseDifficulty!
+  id: ID!
+  isGlobal: Boolean!
+  title: String!
+}
+
+type FeatureFlagObject {
+  enabled: Boolean!
+  key: String!
+}
+
 type FinanceSummary {
   collectionRate: Float!
   expectedTotal: Float!
@@ -280,9 +354,38 @@ The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://
 """
 scalar JSON
 
+enum LeagueFormat {
+  COPA
+  CORTO
+  LARGO
+}
+
+type LeagueObject {
+  createdAt: DateTime!
+  format: LeagueFormat!
+  id: ID!
+  name: String!
+  organizer: UserEntity!
+  status: TournamentStatus!
+}
+
 input LoginInput {
   email: String!
   password: String!
+}
+
+type MacroEntityObject {
+  admin: UserEntity!
+  id: ID!
+  name: String!
+  schools: [SchoolEntity!]!
+  schoolsLimit: Int!
+  type: String!
+}
+
+enum MacroEntityType {
+  GOVERNMENTAL
+  PRIVATE_LEAGUE
 }
 
 input MarkFeeAsPaidInput {
@@ -323,18 +426,32 @@ enum MeasurementUnit {
 
 type MonthlyFeeEntity {
   amount: Float!
-  dueDate: DateTime!
+  dueDate: DateTime
   id: ID!
   month: Int!
   paymentDate: DateTime
   paymentMethod: String
-  player: PlayerEntity!
+  player: PlayerEntity
   schoolId: String!
   status: PaymentStatus!
   year: Int!
 }
 
 type Mutation {
+  adminApproveReferralReward(referralId: String!): ReferralObject!
+  adminCancelLeague(leagueId: String!): LeagueObject!
+  adminCreateMacroEntity(data: CreateMacroEntityInput!): MacroEntityObject!
+  adminDeactivateSchool(schoolId: String!): AdminSchoolObject!
+  adminDeactivateSponsorship(id: String!): SponsorshipObject!
+  adminDeactivateUser(userId: String!): AdminUserObject!
+  adminDeleteExercise(id: String!): Boolean!
+  adminImpersonateUser(userId: String!): UserEntity!
+  adminToggleKillMode(activate: Boolean!, schoolId: String!): AdminSchoolObject!
+  adminToggleMaintenance(enabled: Boolean!): Boolean!
+  adminUpdatePlanLimit(data: UpdatePlanLimitInput!, planType: String!): PlanLimitObject!
+  adminUpdateSystemSetting(key: String!, value: String!): SystemSettingObject!
+  adminUpdateUserRole(role: String!, userId: String!): AdminUserObject!
+  adminWaiveFee(feeId: String!): MonthlyFeeEntity!
   assignCategoriesToCoach(categoryIds: [String!]!, userId: String!): CoachEntity!
   completeTrainingSession(sessionId: ID!): TrainingSessionEntity!
   createBenefit(input: CreateBenefitInput!): Benefit!
@@ -424,6 +541,13 @@ input OnboardingStepInput {
   step: Int!
 }
 
+type OverdueSchoolObject {
+  id: ID!
+  name: String!
+  overduePayments: Int!
+  totalDebt: Float!
+}
+
 enum PaymentMethod {
   CASH
   CREDIT
@@ -437,6 +561,16 @@ enum PaymentStatus {
   PAID
   PENDING
   WAIVED
+}
+
+type PlanLimitObject {
+  allowsFinance: Boolean!
+  allowsGlobalLib: Boolean!
+  allowsStore: Boolean!
+  maxCategories: Int!
+  maxCoaches: Int!
+  maxStudents: Int!
+  planType: PlanType!
 }
 
 enum PlanType {
@@ -506,6 +640,24 @@ type ProductEntity {
 type Query {
   activeBanners(location: String!): [Sponsorship!]!
   activeProducts: [ProductEntity!]!
+  adminAuditLogs: [AdminAuditLogObject!]!
+  adminBillingOverview: [BillingOverviewObject!]!
+  adminBoards: [BoardObject!]!
+  adminDashboardStats: AdminDashboardStats!
+  adminExercises: [ExerciseObject!]!
+  adminFeatureFlags: [FeatureFlagObject!]!
+  adminLeagues: [LeagueObject!]!
+  adminMacroEntities: [MacroEntityObject!]!
+  adminOverdueSchools: [OverdueSchoolObject!]!
+  adminPlanLimits: [PlanLimitObject!]!
+  adminReferrals: [ReferralObject!]!
+  adminRevenueAnalytics: RevenueAnalytics!
+  adminSchools: [AdminSchoolObject!]!
+  adminSponsorships: [SponsorshipObject!]!
+  adminStrategies: [StrategyObject!]!
+  adminSupportTickets: [SupportTicketObject!]!
+  adminSystemSettings: [SystemSettingObject!]!
+  adminUsers: [AdminUserObject!]!
   allSponsorships: [Sponsorship!]!
   boardTasks(schoolId: String!): [Task!]!
   categories(schoolId: String): [CategoryEntity!]!
@@ -517,6 +669,7 @@ type Query {
   getMyPlayersCarnet: UserEntity!
   getPlayerEvaluations(playerId: String!): [EvaluationEntity!]!
   getSchoolDirectory(schoolId: String!): SchoolDirectoryResponse!
+  getSettings(schoolId: String!): SchoolEntity!
   guardians(schoolId: ID): [UserEntity!]!
   guardiansBySchool(schoolId: String): [UserEntity!]!
   match(id: ID!): MatchEntity!
@@ -581,6 +734,15 @@ type Referral {
   updatedAt: DateTime!
 }
 
+type ReferralObject {
+  createdAt: DateTime!
+  id: ID!
+  referredSchoolEmail: String!
+  referrerSchool: SchoolEntity!
+  rewardClaimed: Boolean!
+  status: ReferralStatus!
+}
+
 """Estado de la invitación de referido"""
 enum ReferralStatus {
   CONVERTED
@@ -603,6 +765,11 @@ type ResourceUsage {
   currentPlayers: Int!
   maxCategories: Int!
   maxPlayers: Int!
+}
+
+type RevenueAnalytics {
+  totalPayments: Int!
+  totalRevenue: Float!
 }
 
 type SchoolDirectoryResponse {
@@ -710,6 +877,17 @@ type Sponsorship {
   startDate: DateTime!
 }
 
+type SponsorshipObject {
+  endDate: DateTime!
+  id: ID!
+  imageUrl: String!
+  isActive: Boolean!
+  location: String!
+  name: String!
+  redirectUrl: String
+  startDate: DateTime!
+}
+
 type Strategy {
   coach: UserEntity!
   coachId: String!
@@ -720,6 +898,27 @@ type Strategy {
   title: String!
   tokens: JSON!
   updatedAt: DateTime!
+}
+
+type StrategyObject {
+  createdAt: DateTime!
+  description: String
+  id: ID!
+  title: String!
+}
+
+type SupportTicketObject {
+  createdAt: DateTime!
+  id: ID!
+  message: String!
+  title: String!
+  user: UserEntity!
+}
+
+type SystemSettingObject {
+  key: String!
+  updatedAt: DateTime!
+  value: String!
 }
 
 type TacticalBoardEntity {
@@ -775,6 +974,13 @@ type TestProtocolEntity {
   unit: MeasurementUnit!
 }
 
+enum TournamentStatus {
+  ACTIVE
+  CANCELLED
+  COMPLETED
+  PENDING_PAYMENT
+}
+
 type TrainingSessionEntity {
   attendance: [AttendanceEntity!]
   category: CategoryEntity!
@@ -812,6 +1018,15 @@ input UpdateNoticeInput {
   status: String
   summary: String
   title: String
+}
+
+input UpdatePlanLimitInput {
+  allowsFinance: Boolean
+  allowsGlobalLib: Boolean
+  allowsStore: Boolean
+  maxCategories: Int
+  maxCoaches: Int
+  maxStudents: Int
 }
 
 input UpdatePlayerInput {
@@ -915,5 +1130,6 @@ enum UserRole {
   COACH
   DIRECTOR
   GUARDIAN
+  SUBADMIN
   SUPERADMIN
 }
