@@ -20,7 +20,24 @@ export class ExerciseService {
     });
   }
 
+  async update(id: string, data: any) {
+    return this.prisma.exercise.update({
+      where: {
+        id,
+      },
+      data,
+    });
+  }
+
   // Buscar TODOS los ejercicios DE MI ESCUELA
+
+  async findById(user: UserEntity, id?: string) {
+    return this.prisma.exercise.findUnique({
+      where: {
+        id: id, // FILTRO CRÍTICO DE SEGURIDAD
+      },
+    });
+  }
   async findAllBySchool(user: UserEntity, schoolId?: string) {
     return this.prisma.exercise.findMany({
       where: {

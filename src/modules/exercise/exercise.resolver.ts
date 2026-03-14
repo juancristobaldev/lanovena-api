@@ -45,6 +45,48 @@ export class ExerciseResolver {
     return this.exercisesService.create(createExerciseInput, staff.schoolId);
   }
 
+  @Mutation(() => ExerciseEntity)
+  @UseGuards(GqlAuthGuard)
+  @Roles(Role.DIRECTOR) // Solo directores crean metodología base
+  async updateExercise(
+    @Args('id') id: string,
+    @Args('input') createExerciseInput: CreateExerciseInput,
+    @CurrentUser() user: UserEntity,
+  ) {
+    console.log({ user });
+    const staff = await this.prisma.exercise.findFirst({
+      where: {
+        id,
+        school: {
+          staff: {
+            some: {
+              id: user.sub,
+              role: 'DIRECTOR',
+            },
+          },
+        },
+      },
+    });
+
+    if (!staff) {
+      throw new Error(
+        'No tienes permisos para crear ejercicios en esta escuela',
+      );
+    }
+
+    return this.exercisesService.update(id, createExerciseInput);
+  }
+
+  @Query(() => ExerciseEntity, { name: 'exerciseFindById' })
+  @UseGuards(GqlAuthGuard)
+  @Roles(Role.DIRECTOR, Role.COACH) // Los entrenadores pueden VER, el director GESTIONA
+  findById(
+    @Args('exerciseId') exerciseId: string,
+    @CurrentUser() user: UserEntity,
+  ) {
+    return this.exercisesService.findById(user, exerciseId);
+  }
+
   @Query(() => [ExerciseEntity], { name: 'mySchoolExercises' })
   @UseGuards(GqlAuthGuard)
   @Roles(Role.DIRECTOR, Role.COACH) // Los entrenadores pueden VER, el director GESTIONA

@@ -1,6 +1,6 @@
 import { Args, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { TasksKanbanService } from './tasks-kanban.service';
-import { TaskStatus } from '@prisma/client';
+import { TaskPriority, TaskStatus } from '@prisma/client';
 import { Task } from '@/entitys/tasks.entity';
 // 1. IMPORTA LA ENTIDAD (ObjectType) DE TU TAREA
 
@@ -19,14 +19,18 @@ export class TasksKanbanResolver {
   async createTask(
     @Args('schoolId') schoolId: string,
     @Args('title') title: string,
+    @Args('priority', { type: () => TaskPriority }) priority: TaskPriority,
     @Args('description', { nullable: true }) description?: string,
     @Args('assignedToUserId', { nullable: true }) assignedToUserId?: string,
+    @Args('dueDate', { nullable: true }) dueDate?: Date,
   ) {
     return this.taskService.createTask({
       schoolId,
       title,
       description,
       assignedToUserId,
+      dueDate,
+      priority,
     });
   }
 

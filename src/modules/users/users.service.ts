@@ -126,6 +126,27 @@ export class UsersService {
     });
   }
 
+  async getCoachById(coachId: string, userId: string) {
+    return await this.prisma.user.findFirst({
+      include: {
+        assignedTasks: true,
+        coachProfile: {
+          include: {
+            categories: {
+              include: {
+                players: true,
+              },
+            },
+          },
+        },
+      },
+      where: {
+        role: Role.COACH,
+        id: coachId,
+      },
+    });
+  }
+
   /* ===========================================================================
    * UPDATE
    * =========================================================================== */
@@ -160,6 +181,7 @@ export class UsersService {
     let hashedPassword: any = data.password;
     if (data.password) hashedPassword = await bcrypt.hash(hashedPassword, 10);
 
+    console.log({ data });
     return this.prisma.user.update({
       where: { id: userId },
       data: { ...data, password: hashedPassword },

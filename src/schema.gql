@@ -107,8 +107,10 @@ type CategoryEntity {
 
 """Tipo de categoría: FORMATIVA o SELECTIVA"""
 enum CategoryType {
+  ADULT
   FORMATIVA
   SELECTIVA
+  SPECIAL
 }
 
 type CoachEntity {
@@ -468,7 +470,7 @@ type Mutation {
   createSponsorship(input: CreateSponsorshipInput!): Sponsorship!
   createStrategy(createStrategyInput: CreateStrategyInput!): Strategy!
   createTacticalBoard(input: CreateTacticalBoardInput!): TacticalBoardEntity!
-  createTask(assignedToUserId: String, description: String, schoolId: String!, title: String!): Task!
+  createTask(assignedToUserId: String, description: String, dueDate: DateTime, priority: TaskPriority!, schoolId: String!, title: String!): Task!
   createTestProtocol(input: CreateTestProtocolInput!): TestProtocolEntity!
   createTrainingSession(input: CreateTrainingSessionInput!): TrainingSessionEntity!
   createUser(input: CreateUserInput!): UserEntity!
@@ -500,6 +502,7 @@ type Mutation {
   switchSchoolMode(mode: SchoolMode!, schoolId: ID!): SchoolEntity!
   togglePlayerActive(playerId: String!): PlayerEntity!
   updateCategory(id: String!, input: UpdateCategoryInput!): CategoryEntity!
+  updateExercise(id: String!, input: CreateExerciseInput!): ExerciseEntity!
   updateMatch(input: UpdateMatchInput!): MatchEntity!
   updateNotice(id: ID!, input: UpdateNoticeInput!): NoticeEntity!
 
@@ -586,6 +589,7 @@ type PlayerEntity {
   birthDate: DateTime!
   category: CategoryEntity
   categoryId: ID!
+  createdAt: DateTime
   evaluations: [EvaluationEntity!]
   financialStatus: PlayerFinancialStatus
   firstName: String!
@@ -602,6 +606,7 @@ type PlayerEntity {
   school: SchoolEntity
   schoolId: ID!
   stats: PlayerStats
+  updatedAt: DateTime
 }
 
 type PlayerFinancialStatus {
@@ -662,10 +667,13 @@ type Query {
   boardTasks(schoolId: String!): [Task!]!
   categories(schoolId: String): [CategoryEntity!]!
   category(id: String!): CategoryEntity!
+  coachById(coachId: ID!): UserEntity!
   coaches(schoolId: ID): [UserEntity!]!
+  exerciseFindById(exerciseId: String!): ExerciseEntity!
   financeSummary(month: Int!, schoolId: ID!, year: Int!): FinanceSummary!
   getAvailableTestProtocols: [TestProtocolEntity!]!
   getCalendarOfSchool(schoolId: ID!): SchoolEntity!
+  getCoachsBySchoolId(schoolId: String!): [UserEntity!]!
   getMyPlayersCarnet: UserEntity!
   getPlayerEvaluations(playerId: String!): [EvaluationEntity!]!
   getSchoolDirectory(schoolId: String!): SchoolDirectoryResponse!
@@ -1123,6 +1131,7 @@ type UserEntity {
   school: SchoolEntity
   schoolId: ID
   schools: [SchoolStaff!]
+  sub: ID
   updatedAt: DateTime!
 }
 

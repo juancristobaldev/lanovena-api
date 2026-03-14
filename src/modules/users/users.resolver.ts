@@ -307,6 +307,42 @@ export class UsersResolver {
     return this.usersService.findById(userId, user);
   }
 
+  @Query(() => UserEntity)
+  @Roles(Role.SUPERADMIN, Role.DIRECTOR)
+  async coachById(
+    @Args('coachId', { type: () => ID }) coachId: string,
+    @CurrentUser() user: UserEntity,
+  ) {
+    const userId = user.id ?? user.sub;
+    console.log({ userId }, 'coach by id');
+    console.log({ userId }, 'coach by id');
+    console.log({ userId }, 'coach by id');
+    console.log({ userId }, 'coach by id');
+    console.log({ userId }, 'coach by id');
+    console.log({ userId }, 'coach by id');
+    const coachs = await this.prisma.coach.findMany({
+      where: {
+        user: {
+          school: {
+            staff: {
+              some: {
+                userId: userId,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    console.log({ coachs });
+    const coach = await this.usersService.getCoachById(coachId, userId);
+    console.log({ coach }, 'coach by id');
+    console.log({ coach }, 'coach by id');
+    console.log({ coach }, 'coach by id');
+
+    return coach;
+  }
+
   // En UsersResolver o CoachesResolver
   @Mutation(() => CoachEntity)
   async assignCategoriesToCoach(
@@ -327,6 +363,7 @@ export class UsersResolver {
       },
       include: {
         user: true,
+        categories: true,
       },
     });
 
@@ -343,6 +380,7 @@ export class UsersResolver {
     // Prioridad: Argumento explícito > Escuela del Usuario > Error
     const targetSchoolId = schoolId || user.schoolId;
 
+    console.log(targetSchoolId);
     if (!targetSchoolId) {
       throw new ForbiddenException(
         'School ID es requerido para listar entrenadores',
@@ -361,6 +399,7 @@ export class UsersResolver {
       );
     }
 
+    console.log({ search: {} });
     return this.usersService.findCoaches(targetSchoolId);
   }
 

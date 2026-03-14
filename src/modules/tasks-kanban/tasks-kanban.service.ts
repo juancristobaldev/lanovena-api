@@ -1,6 +1,6 @@
 import { Task } from '@/entitys/tasks.entity';
 import { Injectable } from '@nestjs/common';
-import { TaskStatus } from '@prisma/client';
+import { TaskPriority, TaskStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -23,6 +23,7 @@ export class TasksKanbanService {
     schoolId: string;
     assignedToUserId?: string;
     dueDate?: Date;
+    priority: TaskPriority;
   }): Promise<Task> {
     // Buscamos la posición más alta actual en TODO
     const lastTask = await this.prisma.task.findFirst({

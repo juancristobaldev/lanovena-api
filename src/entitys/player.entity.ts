@@ -146,6 +146,12 @@ export class PlayerEntity {
 
   @Field(() => NextEvent, { nullable: true })
   nextEvent?: NextEvent;
+
+  @Field(() => Date, { nullable: true })
+  updatedAt?: Date;
+
+  @Field(() => Date, { nullable: true })
+  createdAt?: Date;
 }
 
 @InputType()

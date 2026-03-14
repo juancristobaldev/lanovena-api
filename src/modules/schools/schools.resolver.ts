@@ -26,6 +26,8 @@ import { GqlAuthGuard } from '../../auth/guards/gql-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { SchoolsService } from './schools.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { CoachEntity } from '@/entitys/coach.entity';
+import { UserEntity } from '@/entitys/user.entity';
 
 @Resolver(() => SchoolEntity)
 @UseGuards(GqlAuthGuard, RolesGuard)
@@ -50,6 +52,21 @@ export class SchoolsResolver {
     @Args('schoolId', { type: () => String }) schoolId: string,
   ) {
     return this.schoolsService.getSchoolDirectory(schoolId);
+  }
+
+  @Query(() => [UserEntity], { name: 'getCoachsBySchoolId' })
+  @Roles(Role.DIRECTOR, Role.SUPERADMIN) // Solo directores y superadmins pueden ver todo el directorio
+  async getCoachsBySchoolId(
+    @Args('schoolId', { type: () => String }) schoolId: string,
+  ) {
+    return await this.prisma.user.findMany({
+      where: {
+        schoolId,
+      },
+      include: {
+        coachProfile: true,
+      },
+    });
   }
 
   @Query(() => SchoolEntity)

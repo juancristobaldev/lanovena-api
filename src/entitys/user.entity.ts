@@ -27,7 +27,8 @@ registerEnumType(Role, { name: 'UserRole' }); // "Role" a veces da conflicto, me
 export class UserEntity {
   @Field(() => ID)
   id: string;
-
+  @Field(() => ID, { nullable: true })
+  sub?: string;
   @Field(() => String)
   email: string;
 
