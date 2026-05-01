@@ -38,6 +38,10 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('Rol no reconocido');
     }
 
+    console.log(user?.role);
+    const rol = user.role as Role;
+    console.log({ allowedRoles, rol, ROLE_HIERARCHY });
+
     const hasAccess = requiredRoles.some((role) => allowedRoles.includes(role));
 
     if (!hasAccess) {

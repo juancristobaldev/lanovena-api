@@ -1,4 +1,5 @@
 // src/modules/admin/dto/admin.dto.ts
+import { RegisterInput } from '@/entitys/auth.entity';
 import {
   InputType,
   Field,
@@ -7,7 +8,21 @@ import {
   ObjectType,
   Float,
 } from '@nestjs/graphql';
-import { TournamentStatus } from '@prisma/client';
+import {
+  GlobalAssetType,
+  TargetAudience,
+  TournamentStatus,
+} from '@prisma/client';
+import {
+  IsBoolean,
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsNumber,
+  IsString,
+  Min,
+  MinLength,
+} from 'class-validator';
 import GraphQLJSON from 'graphql-type-json';
 
 // ==========================================
@@ -20,9 +35,6 @@ export enum MacroEntityType {
 }
 registerEnumType(MacroEntityType, { name: 'MacroEntityType' });
 
-registerEnumType(TournamentStatus, {
-  name: 'TournamentStatus',
-});
 // Editado: Alineado con el enum `SchoolMode` de tu esquema Prisma
 export enum SchoolMode {
   COMMERCIAL = 'COMMERCIAL',
@@ -30,25 +42,7 @@ export enum SchoolMode {
 }
 registerEnumType(SchoolMode, { name: 'SchoolMode' });
 
-export enum LeagueFormat {
-  LARGO = 'LARGO',
-  CORTO = 'CORTO',
-  COPA = 'COPA',
-}
-registerEnumType(LeagueFormat, { name: 'LeagueFormat' });
-
-export enum GlobalAssetType {
-  PDF = 'PDF',
-  VIDEO = 'VIDEO',
-  TACTICAL_BOARD = 'TACTICAL_BOARD',
-}
 registerEnumType(GlobalAssetType, { name: 'GlobalAssetType' });
-
-export enum TargetAudience {
-  COACH = 'COACH',
-  PLAYER = 'PLAYER',
-  GUARDIAN = 'GUARDIAN',
-}
 registerEnumType(TargetAudience, { name: 'TargetAudience' });
 
 // ==========================================
@@ -86,23 +80,41 @@ export class CreateSchoolClientDto {
   macroEntityId?: string;
 }
 
-@InputType()
-export class CreateLeagueDto {
+@ObjectType()
+export class GlobalAsset {
   @Field(() => String)
-  name: string;
+  id: string;
+  @Field(() => String)
+  title: string;
+
+  @Field(() => String, { nullable: true })
+  description?: string | null;
+
+  @Field(() => GlobalAssetType)
+  type: GlobalAssetType;
+
+  @Field(() => TargetAudience)
+  targetAudience: TargetAudience;
 
   @Field(() => String)
-  organizerEmail: string;
+  url: string;
+  @Field(() => Boolean)
+  isActive: boolean;
 
-  @Field(() => LeagueFormat)
-  format: LeagueFormat;
+  @Field(() => Date)
+  createdAt: Date;
 
-  @Field(() => GraphQLJSON, {
-    nullable: true,
-    description:
-      'JSON con configuraciones específicas de ruedas, ascensos, etc.',
-  })
-  settings?: any;
+  @Field(() => Date)
+  updatedAt: Date;
+}
+
+@ObjectType()
+export class GlobalAssetOutput {
+  @Field(() => [GlobalAsset])
+  coaches: GlobalAsset[];
+  @Field(() => [GlobalAsset]) guardians: GlobalAsset[];
+
+  @Field(() => [GlobalAsset]) players?: GlobalAsset[];
 }
 
 @InputType()
@@ -121,6 +133,8 @@ export class CreateGlobalAssetDto {
 
   @Field(() => String)
   url: string;
+  @Field(() => Boolean)
+  isActive: boolean;
 }
 
 @ObjectType()
@@ -140,39 +154,114 @@ export class AdminDashboardStats {
 
 @InputType()
 export class CreateMacroEntityInput {
+  // --- Datos de la Entidad ---
   @Field()
-  name: string;
+  @IsString()
+  @IsNotEmpty({ message: 'El nombre de la entidad es obligatorio' })
+  entityName: string;
 
-  @Field(() => MacroEntityType)
-  type: MacroEntityType;
+  @Field(() => String) // Si registraste el Enum en GQL, usa: @Field(() => MacroEntityType)
+  @IsNotEmpty()
+  entityType: MacroEntityType;
 
-  @Field(() => Int, { defaultValue: 0 })
+  @Field(() => Int)
+  @IsNumber()
+  @Min(1, { message: 'El límite debe ser al menos 1 escuela' })
   schoolsLimit: number;
 
-  @Field({ defaultValue: true })
-  isActive: boolean;
+  // --- Datos del SubAdmin ---
+  @Field()
+  @IsString()
+  @IsNotEmpty({ message: 'El nombre del administrador es obligatorio' })
+  adminFullName: string;
 
   @Field()
-  adminId: string;
+  @IsEmail({}, { message: 'Debe ser un correo válido' })
+  adminEmail: string;
+
+  @Field()
+  @IsString()
+  @MinLength(6, { message: 'La contraseña debe tener al menos 6 caracteres' })
+  adminPassword: string;
 }
 
 @InputType()
 export class UpdatePlanLimitInput {
-  @Field(() => Int, { nullable: true })
-  maxStudents?: number;
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  name?: string;
 
   @Field(() => Int, { nullable: true })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  amount?: number;
+
+  @Field(() => Int, { nullable: true })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  maxSchools?: number;
+
+  @Field(() => Int, { nullable: true })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  maxPlayersPerSchool?: number;
+
+  @Field(() => Int, { nullable: true })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
   maxCategories?: number;
 
   @Field(() => Int, { nullable: true })
-  maxCoaches?: number;
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  maxGuardianPerPlayer?: number;
 
-  @Field({ nullable: true })
-  allowsStore?: boolean;
+  @Field(() => Boolean, { nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
 
-  @Field({ nullable: true })
-  allowsGlobalLib?: boolean;
+@InputType()
+export class CreatePlanLimitInput {
+  @Field(() => String)
+  @IsNotEmpty()
+  @IsString()
+  name: string;
 
-  @Field({ nullable: true })
-  allowsFinance?: boolean;
+  @Field(() => Int)
+  @IsNumber()
+  @Min(0)
+  amount: number;
+
+  @Field(() => Int)
+  @IsNumber()
+  @Min(1)
+  maxSchools: number;
+
+  @Field(() => Int)
+  @IsNumber()
+  @Min(1)
+  maxPlayersPerSchool: number;
+
+  @Field(() => Int)
+  @IsNumber()
+  @Min(1)
+  maxCategories: number;
+
+  @Field(() => Int)
+  @IsNumber()
+  @Min(1)
+  maxGuardianPerPlayer: number;
+
+  @Field(() => Boolean, { nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }

@@ -6,8 +6,9 @@ import {
   registerEnumType,
   PartialType,
   Int,
+  Float,
 } from '@nestjs/graphql';
-import { SchoolMode, PlanType } from '@prisma/client';
+import { SchoolMode } from '@prisma/client';
 import {
   IsEnum,
   IsNotEmpty,
@@ -21,7 +22,6 @@ import { PlayerEntity } from './player.entity';
 
 // 1. Registrar Enums para GraphQL
 registerEnumType(SchoolMode, { name: 'SchoolMode' });
-registerEnumType(PlanType, { name: 'PlanType' });
 
 export enum SchoolRole {
   DIRECTOR = 'DIRECTOR',
@@ -84,14 +84,20 @@ export class SchoolEntity {
   @Field(() => String, { description: 'Identificador único para la URL' })
   slug: string;
 
+  @Field(() => Int, { nullable: true })
+  currency?: number | null;
+
   @Field(() => SchoolMode, { defaultValue: SchoolMode.COMMERCIAL })
   mode: SchoolMode;
 
-  @Field(() => PlanType, { defaultValue: PlanType.SEMILLERO })
-  planType: PlanType;
+  @Field(() => String, { nullable: true })
+  planLimitId?: string | null;
 
-  @Field(() => String)
-  subscriptionStatus: string;
+  @Field(() => String, { nullable: true })
+  subscriptionStatus?: string | null;
+
+  @Field(() => String, { nullable: true })
+  macroEntityId?: string | null;
 
   @Field(() => String, { nullable: true })
   logoUrl?: string;
@@ -101,6 +107,15 @@ export class SchoolEntity {
     description: 'Datos bancarios para transferencias',
   })
   bankDetails?: string;
+
+  @Field(() => Float, { nullable: true })
+  monthlyFee?: number;
+
+  @Field(() => Float, { nullable: true })
+  latitude?: number | null;
+
+  @Field(() => Float, { nullable: true })
+  longitude?: number | null;
 
   @Field(() => Date)
   createdAt: Date;
@@ -185,13 +200,26 @@ export class CreateSchoolInput {
   @IsOptional()
   mode?: SchoolMode;
 
-  @Field(() => String)
-  subscriptionStatus: string;
-
-  @Field(() => PlanType, { nullable: true, defaultValue: PlanType.SEMILLERO })
-  @IsEnum(PlanType)
+  @Field(() => String, { nullable: true })
   @IsOptional()
-  planType?: PlanType;
+  subscriptionStatus?: string;
+
+  @Field(() => String, { nullable: true })
+  @IsString()
+  @IsOptional()
+  planLimitId?: string;
+
+  @Field(() => Float, { nullable: true, defaultValue: 20000 })
+  @IsOptional()
+  monthlyFee?: number;
+
+  @Field(() => Float, { nullable: true })
+  @IsOptional()
+  latitude?: number;
+
+  @Field(() => Float, { nullable: true })
+  @IsOptional()
+  longitude?: number;
 }
 
 @InputType()
@@ -205,6 +233,18 @@ export class UpdateSchoolInput extends PartialType(CreateSchoolInput) {
   @IsString()
   @IsOptional()
   logoUrl?: string;
+
+  @Field(() => Float, { nullable: true })
+  @IsOptional()
+  monthlyFee?: number;
+
+  @Field(() => Float, { nullable: true })
+  @IsOptional()
+  latitude?: number;
+
+  @Field(() => Float, { nullable: true })
+  @IsOptional()
+  longitude?: number;
 }
 
 @InputType({

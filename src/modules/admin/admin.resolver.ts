@@ -12,11 +12,11 @@ import { UserEntity } from '@/entitys/user.entity';
 import {
   AdminDashboardStats,
   RevenueAnalytics,
+  AdminStatisticsKpis,
   AdminSchoolObject,
   AdminUserObject,
   BillingOverviewObject,
   OverdueSchoolObject,
-  LeagueObject,
   ReferralObject,
   SponsorshipObject,
   ExerciseObject,
@@ -28,18 +28,44 @@ import {
   PlanLimitObject,
   MacroEntityObject,
   AdminAuditLogObject,
+  AdminDirectorObject,
+  AdminSafeDeleteResultObject,
 } from './dto/admin.object';
-import { CreateMacroEntityInput, UpdatePlanLimitInput } from './dto/admin.dto';
+import {
+  CreatePlanLimitInput,
+  CreateGlobalAssetDto,
+  CreateMacroEntityInput,
+  GlobalAsset,
+  GlobalAssetOutput,
+  UpdatePlanLimitInput,
+} from './dto/admin.dto';
+import { RegisterInput } from '@/entitys/auth.entity';
+import { AuthService } from '../auth/auth.service';
+import { Role } from '@prisma/client';
+import { TournamentService } from '../tournament/tournament.service';
 
 @Resolver()
 @UseGuards(GqlAuthGuard, RolesGuard)
 @Roles('SUPERADMIN')
 export class AdminResolver {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly authServices: AuthService,
+  ) {}
 
   // =====================================================
   // DASHBOARD
   // =====================================================
+
+  @Query(() => [UserEntity], { name: 'GetDirectors' })
+  async GetDirectors() {
+    return this.adminService.getDirectors();
+  }
+
+  @Query(() => [AdminDirectorObject], { name: 'adminDirectors' })
+  async adminDirectors() {
+    return this.adminService.getAdminDirectors();
+  }
 
   @Query(() => AdminDashboardStats, { name: 'adminDashboardStats' })
   async dashboardStats(): Promise<AdminDashboardStats> {
@@ -49,6 +75,13 @@ export class AdminResolver {
   @Query(() => RevenueAnalytics, { name: 'adminRevenueAnalytics' })
   async revenueAnalytics(): Promise<RevenueAnalytics> {
     return this.adminService.getRevenueAnalytics();
+  }
+
+  @Query(() => AdminStatisticsKpis, { name: 'adminStatisticsKpis' })
+  async statisticsKpis(
+    @Args('range', { type: () => String, nullable: true }) range?: string,
+  ): Promise<AdminStatisticsKpis> {
+    return this.adminService.getStatisticsKpis(range);
   }
 
   // =====================================================
@@ -83,10 +116,14 @@ export class AdminResolver {
   }
 
   @Mutation(() => MacroEntityObject, { name: 'adminCreateMacroEntity' })
-  async createMacroEntity(@Args('data') data: CreateMacroEntityInput) {
-    return this.adminService.createMacroEntity(data);
+  async createMacroEntity(@Args('input') input: CreateMacroEntityInput) {
+    return this.adminService.create(input);
   }
 
+  @Mutation(() => UserEntity, { name: 'createSuperAdmin' })
+  async createSuperAdmin(@Args('input') input: RegisterInput) {
+    return this.authServices.register(input, Role.SUPERADMIN);
+  }
   // =====================================================
   // USERS
   // =====================================================
@@ -111,6 +148,11 @@ export class AdminResolver {
     return this.adminService.deactivateUser(userId);
   }
 
+  @Mutation(() => AdminSafeDeleteResultObject, { name: 'adminDeleteDirectorSafe' })
+  async deleteDirectorSafe(@Args('directorId') directorId: string) {
+    return this.adminService.deleteDirectorSafe(directorId);
+  }
+
   @Mutation(() => UserEntity, { name: 'adminImpersonateUser' })
   async impersonateUser(@Args('userId') userId: string) {
     return this.adminService.impersonateUser(userId);
@@ -127,10 +169,29 @@ export class AdminResolver {
 
   @Mutation(() => PlanLimitObject, { name: 'adminUpdatePlanLimit' })
   async updatePlanLimit(
-    @Args('planType') planType: string,
+    @Args('planLimitId') planLimitId: string,
     @Args('data') data: UpdatePlanLimitInput,
   ): Promise<PlanLimitObject> {
-    return this.adminService.updatePlanLimit(planType, data);
+    return this.adminService.updatePlanLimit(planLimitId, data);
+  }
+
+  @Mutation(() => PlanLimitObject, { name: 'adminCreatePlanLimit' })
+  async createPlanLimit(
+    @Args('input') input: CreatePlanLimitInput,
+  ): Promise<PlanLimitObject> {
+    return this.adminService.createPlanLimit(input);
+  }
+
+  @Mutation(() => PlanLimitObject, { name: 'adminDeactivatePlanLimit' })
+  async deactivatePlanLimit(
+    @Args('planLimitId') planLimitId: string,
+  ): Promise<PlanLimitObject> {
+    return this.adminService.deactivatePlanLimit(planLimitId);
+  }
+
+  @Mutation(() => Boolean, { name: 'adminDeletePlanLimit' })
+  async deletePlanLimit(@Args('planLimitId') planLimitId: string) {
+    return this.adminService.deletePlanLimit(planLimitId);
   }
 
   // =====================================================
@@ -155,16 +216,6 @@ export class AdminResolver {
   // =====================================================
   // LEAGUES
   // =====================================================
-
-  @Query(() => [LeagueObject], { name: 'adminLeagues' })
-  async leagues() {
-    return this.adminService.getLeagues();
-  }
-
-  @Mutation(() => LeagueObject, { name: 'adminCancelLeague' })
-  async cancelLeague(@Args('leagueId') leagueId: string) {
-    return this.adminService.cancelLeague(leagueId);
-  }
 
   // =====================================================
   // REFERRALS
@@ -207,6 +258,24 @@ export class AdminResolver {
   async deleteExercise(@Args('id') id: string) {
     await this.adminService.deleteExercise(id);
     return true;
+  }
+
+  @Query(() => GlobalAssetOutput, { name: 'getGlobalAssets' })
+  async getGlobalAssets() {
+    const globalAsset = await this.adminService.getGlobalAssets();
+    return globalAsset;
+  }
+
+  @Mutation(() => GlobalAsset, { name: 'createGlobalAssets' })
+  async createGlobalAssets(@Args('input') input: CreateGlobalAssetDto) {
+    const globalAsset = await this.adminService.createGlobalAssets(input);
+    return globalAsset;
+  }
+
+  @Mutation(() => Boolean, { name: 'deleteGlobalAssets' })
+  async deleteGlobalAssets(@Args('id') id: string) {
+    const globalAsset = await this.adminService.deleteGlobalAsset(id);
+    return globalAsset;
   }
 
   @Query(() => [StrategyObject], { name: 'adminStrategies' })

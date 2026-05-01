@@ -20,6 +20,7 @@ import { PaymentStatus, PlayerPosition } from '@prisma/client';
 import { SchoolEntity } from './school.entity';
 import { AttendanceEntity } from './attendace-session.entity';
 import { EvaluationEntity } from './evaluation.entity';
+import { MonthlyFeeEntity } from './monthly-fee.entity';
 
 registerEnumType(PaymentStatus, {
   name: 'PaymentStatus',
@@ -149,6 +150,9 @@ export class PlayerEntity {
 
   @Field(() => Date, { nullable: true })
   updatedAt?: Date;
+
+  @Field(() => [MonthlyFeeEntity], { nullable: true })
+  monthlyPayments?: MonthlyFeeEntity[];
 
   @Field(() => Date, { nullable: true })
   createdAt?: Date;

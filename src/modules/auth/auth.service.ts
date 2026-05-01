@@ -53,6 +53,16 @@ export class AuthService {
     return this.generateAuthResponse(user);
   }
 
+  async isEmailAvailable(email: string): Promise<boolean> {
+    const normalizedEmail = email.trim().toLowerCase();
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: { id: true },
+    });
+
+    return !existingUser;
+  }
+
   /**
    * 👑 GOD MODE: Permite a un SUPERADMIN loguearse como cualquier otro usuario
    * sin conocer la contraseña. (Solo funciona si quien llama es SuperAdmin).
@@ -89,8 +99,9 @@ export class AuthService {
     input: RegisterInput,
     role: Role = Role.DIRECTOR,
   ): Promise<AuthResponse> {
+    const normalizedEmail = input.email.trim().toLowerCase();
     const existingUser = await this.prisma.user.findUnique({
-      where: { email: input.email },
+      where: { email: normalizedEmail },
     });
     if (existingUser) {
       throw new BadRequestException('El correo ya está registrado');
@@ -98,9 +109,9 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(input.password, 10);
 
-    const newUser = await this.prisma.user.create({
+    const newUser: any = await this.prisma.user.create({
       data: {
-        email: input.email,
+        email: normalizedEmail,
         password: hashedPassword,
         fullName: input.fullName,
         phone: input.phone,
@@ -109,6 +120,8 @@ export class AuthService {
       },
     });
 
+    console.log({ user: newUser });
+    if (role === Role.SUPERADMIN) return newUser;
     return this.generateAuthResponse(newUser);
   }
 

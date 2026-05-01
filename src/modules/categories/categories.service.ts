@@ -45,11 +45,18 @@ export class CategoriesService {
       where: { id },
     });
 
+    console.log({ user, category });
     if (!category)
       throw new NotFoundException(`Categoría con ID ${id} no encontrada`);
 
+    const staff = await this.prisma.schoolStaff.findFirst({
+      where: {
+        userId: user.id,
+        schoolId: category.schoolId,
+      },
+    });
     // Seguridad: Verificar que sea de mi escuela (excepto SuperAdmin)
-    if (user.role !== Role.SUPERADMIN && category.schoolId !== user.schoolId) {
+    if (user.role !== Role.SUPERADMIN && !staff) {
       throw new ForbiddenException('No tienes acceso a esta categoría');
     }
 

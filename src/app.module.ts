@@ -28,6 +28,13 @@ import { ConfigModule } from '@nestjs/config';
 import { TasksKanbanModule } from './modules/tasks-kanban/tasks-kanban.module';
 import { NoticesModule } from './modules/notices/notices.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { S3Module } from './modules/s3/s3.module';
+import { S3Service } from './modules/s3/s3.service';
+import { GlobalNewsModule } from './global-news/global-news.module';
+import { TournamentModule } from './modules/tournament/tournament.module';
+import { HttpAuthGuard } from './auth/guards/http-auth.guard';
+import { SchoolGalleryModule } from './modules/school-gallery/school-gallery.module';
+import { SubadminModule } from './modules/subadmin/subadmin.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -63,8 +70,13 @@ import { AdminModule } from './modules/admin/admin.module';
     TasksKanbanModule,
     NoticesModule,
     AdminModule,
+    S3Module,
+    SchoolGalleryModule,
+    SubadminModule,
+    GlobalNewsModule,
+    TournamentModule,
   ],
   controllers: [AppController],
-  providers: [AppService, TasksService],
+  providers: [AppService, TasksService, S3Service, HttpAuthGuard],
 })
 export class AppModule {}

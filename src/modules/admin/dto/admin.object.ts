@@ -2,13 +2,7 @@ import { ObjectType, Field, Int, Float, ID } from '@nestjs/graphql';
 import { UserEntity } from '@/entitys/user.entity';
 import { CountSchool, SchoolEntity } from '@/entitys/school.entity';
 import { MonthlyFeeEntity } from '@/entitys/monthly-fee.entity';
-import {
-  Role,
-  TournamentStatus,
-  PlanType,
-  PaymentStatus,
-} from '@prisma/client';
-import { LeagueFormat } from './admin.dto';
+import { Role, TournamentStatus, PaymentStatus } from '@prisma/client';
 import { ReferralStatus } from '@/entitys/growth.entity';
 import { ExerciseDifficulty } from '@/entitys/exercise.entity';
 
@@ -16,18 +10,17 @@ import { ExerciseDifficulty } from '@/entitys/exercise.entity';
 export class AdminSchoolObject {
   @Field(() => ID)
   id: string;
-
   @Field()
   name: string;
 
   @Field()
   slug: string;
 
-  @Field()
-  subscriptionStatus: string;
+  @Field(() => String, { nullable: true })
+  subscriptionStatus?: string | null;
 
-  @Field(() => PlanType)
-  planType: PlanType;
+  @Field(() => String, { nullable: true })
+  planLimitId?: string | null;
 
   @Field(() => Boolean)
   isActive: boolean;
@@ -35,8 +28,14 @@ export class AdminSchoolObject {
   @Field(() => Date, { nullable: true })
   nextBillingDate?: Date;
 
+  @Field(() => Float, { nullable: true })
+  latitude?: number;
+
+  @Field(() => Float, { nullable: true })
+  longitude?: number;
+
   @Field(() => CountSchool)
-  counts: CountSchool;
+  _count: CountSchool;
 }
 @ObjectType()
 export class AdminUserObject {
@@ -93,26 +92,7 @@ export class OverdueSchoolObject {
   @Field(() => Float)
   totalDebt: number;
 }
-@ObjectType()
-export class LeagueObject {
-  @Field(() => ID)
-  id: string;
 
-  @Field()
-  name: string;
-
-  @Field(() => LeagueFormat)
-  format: LeagueFormat;
-
-  @Field(() => TournamentStatus)
-  status: TournamentStatus;
-
-  @Field(() => UserEntity)
-  organizer: UserEntity;
-
-  @Field(() => Date)
-  createdAt: Date;
-}
 @ObjectType()
 export class ReferralObject {
   @Field(() => ID)
@@ -260,24 +240,55 @@ export class RevenueAnalytics {
 }
 
 @ObjectType()
+export class AdminConversionKpi {
+  @Field(() => Int) totalSchools: number;
+  @Field(() => Int) activeSchools: number;
+  @Field(() => Float) conversionRate: number;
+}
+
+@ObjectType()
+export class AdminTrendPoint {
+  @Field() label: string;
+  @Field(() => Int) users: number;
+  @Field(() => Int) players: number;
+}
+
+@ObjectType()
+export class AdminWeeklyActivityPoint {
+  @Field() label: string;
+  @Field(() => Int) value: number;
+}
+
+@ObjectType()
+export class AdminStatisticsKpis {
+  @Field(() => AdminConversionKpi) conversion: AdminConversionKpi;
+  @Field(() => [AdminTrendPoint]) trend: AdminTrendPoint[];
+  @Field(() => [AdminWeeklyActivityPoint])
+  weeklyActivity: AdminWeeklyActivityPoint[];
+}
+
+@ObjectType()
 export class MacroEntityObject {
   @Field(() => ID) id: string;
   @Field() name: string;
   @Field() type: string;
   @Field(() => Int) schoolsLimit: number;
   @Field(() => UserEntity) admin: UserEntity;
-  @Field(() => [SchoolEntity]) schools: SchoolEntity[];
 }
 
 @ObjectType()
 export class PlanLimitObject {
-  @Field(() => PlanType) planType: PlanType;
-  @Field(() => Int) maxStudents: number;
+  @Field(() => ID) id: string;
+  @Field(() => String) name: string;
+  @Field(() => Int) amount: number;
+  @Field(() => String) interval: string;
+  @Field(() => String, { nullable: true }) flowId?: string | null;
+  @Field(() => String, { nullable: true }) flowIdYearly?: string | null;
+  @Field(() => Int) maxSchools: number;
+  @Field(() => Int) maxPlayersPerSchool: number;
   @Field(() => Int) maxCategories: number;
-  @Field(() => Int) maxCoaches: number;
-  @Field() allowsStore: boolean;
-  @Field() allowsGlobalLib: boolean;
-  @Field() allowsFinance: boolean;
+  @Field(() => Int) maxGuardianPerPlayer: number;
+  @Field(() => Boolean) isActive: boolean;
 }
 
 @ObjectType()
@@ -287,4 +298,46 @@ export class AdminAuditLogObject {
   @Field({ nullable: true }) details?: string;
   @Field() adminId: string;
   @Field(() => Date) createdAt: Date;
+}
+
+@ObjectType()
+export class AdminDirectorObject {
+  @Field(() => ID)
+  id: string;
+
+  @Field()
+  fullName: string;
+
+  @Field()
+  email: string;
+
+  @Field(() => Boolean)
+  isActive: boolean;
+
+  @Field(() => Int)
+  schoolsCount: number;
+
+  @Field(() => String, { nullable: true })
+  flowSubscriptionStatus?: string | null;
+
+  @Field(() => String, { nullable: true })
+  flowCardStatus?: string | null;
+
+  @Field(() => Boolean)
+  canDelete: boolean;
+
+  @Field(() => [String])
+  blockers: string[];
+
+  @Field(() => Date)
+  createdAt: Date;
+}
+
+@ObjectType()
+export class AdminSafeDeleteResultObject {
+  @Field(() => Boolean)
+  success: boolean;
+
+  @Field(() => String)
+  message: string;
 }

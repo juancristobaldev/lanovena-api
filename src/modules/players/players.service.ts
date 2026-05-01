@@ -40,6 +40,7 @@ export class PlayersService {
       where: { id: playerId },
     });
 
+    console.log({ player, user });
     if (!player) throw new NotFoundException('Jugador no encontrado');
 
     const staff = await this.prisma.schoolStaff.findFirst({
@@ -48,7 +49,7 @@ export class PlayersService {
         schoolId: player?.schoolId || '',
       },
     });
-    if (!staff) {
+    if (!staff && player.schoolId !== user.schoolId) {
       throw new ForbiddenException('Acceso denegado');
     }
 
@@ -116,6 +117,30 @@ export class PlayersService {
       include: {
         category: true,
         guardian: true,
+        evaluations: {
+          include: {
+            protocol: true,
+          },
+          orderBy: {
+            date: 'desc',
+          },
+          take: 10,
+        },
+        attendance: {
+          include: {
+            session: true,
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 20,
+        },
+        monthlyPayments: {
+          orderBy: {
+            dueDate: 'desc',
+          },
+          take: 6,
+        },
       },
     });
   }

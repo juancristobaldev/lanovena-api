@@ -4,7 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { Prisma, School, SchoolMode, PlanType, Role } from '@prisma/client';
+import { Prisma, School, SchoolMode, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateBenefitInput,
@@ -83,14 +83,13 @@ export class SchoolsService {
     }
 
     // 2. Creación con valores por defecto según reglas de negocio
-    // El plan inicial siempre es "SEMILLERO" a menos que se especifique lo contrario.
-    // El estado de suscripción comienza ACTIVO.
+    // El estado de suscripción inicia null hasta completar el flujo de suscripción.
     return this.prisma.school.create({
       data: {
         ...data,
-        planType: data.planType || PlanType.SEMILLERO,
-        subscriptionStatus: 'ACTIVE',
+        subscriptionStatus: data.subscriptionStatus ?? null,
         mode: data.mode || SchoolMode.COMMERCIAL, // Por defecto Comercial [cite: 7]
+        monthlyFee: data.monthlyFee,
       },
     });
   }
@@ -241,10 +240,10 @@ export class SchoolsService {
   }
 
   // Método para actualizar el Plan (Upgrade/Downgrade) [cite: 104, 116, 128]
-  async updatePlan(id: string, newPlan: PlanType): Promise<School> {
+  async updatePlan(id: string, newPlanLimitId: string): Promise<School> {
     return this.prisma.school.update({
       where: { id },
-      data: { planType: newPlan },
+      data: { planLimitId: newPlanLimitId },
     });
   }
 
@@ -288,6 +287,7 @@ export class SchoolsService {
     const school = await this.prisma.school.findUnique({
       where: { id: schoolId },
       include: {
+        planLimit: true,
         _count: {
           select: { players: true, categories: true, users: true }, // Asumimos users filtrados por rol COACH
         },
@@ -296,34 +296,22 @@ export class SchoolsService {
 
     if (!school) throw new NotFoundException('Escuela no encontrada');
 
-    // Definición de Límites (Hardcoded según doc, idealmente mover a DB 'PlanLimit')
-    const LIMITS = {
-      [PlanType.SEMILLERO]: { MAX_PLAYERS: 80, MAX_CATS: 6, MAX_COACHES: 3 },
-      [PlanType.PROFESIONAL]: {
-        MAX_PLAYERS: 250,
-        MAX_CATS: 12,
-        MAX_COACHES: 10,
-      },
-      [PlanType.ALTO_RENDIMIENTO]: {
-        MAX_PLAYERS: 99999,
-        MAX_CATS: 999,
-        MAX_COACHES: 999,
-      },
-      [PlanType.GOLD_NETWORK]: {
-        MAX_PLAYERS: 99999,
-        MAX_CATS: 999,
-        MAX_COACHES: 999,
-      },
-    };
+    if (!school.planLimit) {
+      throw new BadRequestException('La escuela no tiene plan asignado');
+    }
 
-    const currentPlan = LIMITS[school.planType];
+    const currentPlan = {
+      MAX_PLAYERS: school.planLimit.maxPlayersPerSchool,
+      MAX_CATS: school.planLimit.maxCategories,
+      MAX_COACHES: 9999,
+    };
 
     if (
       resource === 'PLAYER' &&
       school._count.players >= currentPlan.MAX_PLAYERS
     ) {
       throw new BadRequestException(
-        `Has alcanzado el límite de ${currentPlan.MAX_PLAYERS} jugadores de tu plan ${school.planType}. Actualiza a Profesional.`,
+        `Has alcanzado el límite de ${currentPlan.MAX_PLAYERS} jugadores de tu plan ${school.planLimit.name}.`,
       );
     }
 
@@ -346,18 +334,21 @@ export class SchoolsService {
   async getResourceUsage(schoolId: string): Promise<ResourceUsage> {
     const school = await this.prisma.school.findUnique({
       where: { id: schoolId },
-      include: { _count: { select: { players: true, categories: true } } },
+      include: {
+        planLimit: true,
+        _count: { select: { players: true, categories: true } },
+      },
     });
 
     if (!school) throw new NotFoundException('Escuela no encontrada');
-    const LIMITS = {
-      [PlanType.SEMILLERO]: { MAX_PLAYERS: 80, MAX_CATS: 6 },
-      [PlanType.PROFESIONAL]: { MAX_PLAYERS: 250, MAX_CATS: 12 },
-      [PlanType.ALTO_RENDIMIENTO]: { MAX_PLAYERS: 9999, MAX_CATS: 999 },
-      [PlanType.GOLD_NETWORK]: { MAX_PLAYERS: 9999, MAX_CATS: 999 },
-    };
+    if (!school.planLimit) {
+      throw new BadRequestException('La escuela no tiene plan asignado');
+    }
 
-    const limits = LIMITS[school.planType];
+    const limits = {
+      MAX_PLAYERS: school.planLimit.maxPlayersPerSchool,
+      MAX_CATS: school.planLimit.maxCategories,
+    };
 
     return {
       currentPlayers: school._count.players,

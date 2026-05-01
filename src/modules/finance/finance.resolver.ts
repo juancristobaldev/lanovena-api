@@ -19,30 +19,34 @@ import {
   MarkFeeAsPaidInput,
 } from '../../entitys/monthly-fee.entity';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Resolver(() => MonthlyFeeEntity)
 @UseGuards(GqlAuthGuard, RolesGuard)
 export class FinanceResolver {
-  constructor(private readonly financeService: FinanceService) {}
+  constructor(
+    private readonly financeService: FinanceService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   /* ===========================================================================
    * QUERIES (Lectura)
    * =========================================================================== */
 
   @Query(() => FinanceSummary)
-  @Roles(Role.DIRECTOR, Role.SUPERADMIN)
+  @Roles(Role.DIRECTOR, Role.SUPERADMIN, Role.SUBADMIN)
   async financeSummary(
     @Args('schoolId', { type: () => ID }) schoolId: string,
     @Args('month', { type: () => Int }) month: number,
     @Args('year', { type: () => Int }) year: number,
     @CurrentUser() user: any,
   ) {
-    this.validateAccess(user, schoolId);
+    await this.validateAccess(user, schoolId);
     return this.financeService.getFinancialSummary(schoolId, month, year);
   }
 
   @Query(() => [MonthlyFeeEntity])
-  @Roles(Role.DIRECTOR, Role.SUPERADMIN)
+  @Roles(Role.DIRECTOR, Role.SUPERADMIN, Role.SUBADMIN)
   async monthlyFees(
     @Args('schoolId', { type: () => ID }) schoolId: string,
     @Args('month', { type: () => Int }) month: number,
@@ -51,7 +55,7 @@ export class FinanceResolver {
     status: PaymentStatus,
     @CurrentUser() user: any,
   ) {
-    this.validateAccess(user, schoolId);
+    await this.validateAccess(user, schoolId);
     return this.financeService.findAllFees(schoolId, month, year, status);
   }
 
@@ -60,7 +64,7 @@ export class FinanceResolver {
    * =========================================================================== */
 
   @Mutation(() => MonthlyFeeEntity)
-  @Roles(Role.DIRECTOR, Role.SUPERADMIN)
+  @Roles(Role.DIRECTOR, Role.SUPERADMIN, Role.SUBADMIN)
   async markFeeAsPaid(
     @Args('input') input: MarkFeeAsPaidInput,
     @CurrentUser() user: any,
@@ -83,8 +87,26 @@ export class FinanceResolver {
    * Valida que un Director solo vea su propia escuela.
    * El SuperAdmin puede ver cualquiera.
    */
-  private validateAccess(user: any, targetSchoolId: string) {
+  private async validateAccess(user: any, targetSchoolId: string) {
     if (user.role === Role.SUPERADMIN) return;
+
+    if (user.role === Role.SUBADMIN) {
+      const school = await this.prisma.school.findFirst({
+        where: {
+          id: targetSchoolId,
+          macroEntity: {
+            adminId: user.id,
+          },
+        },
+      });
+
+      if (!school) {
+        throw new ForbiddenException(
+          'No tienes acceso a las finanzas de esta escuela',
+        );
+      }
+      return;
+    }
 
     // Si el usuario tiene múltiples escuelas (user.schools), verificar si targetSchoolId está en ellas
     if (user.schools && Array.isArray(user.schools)) {

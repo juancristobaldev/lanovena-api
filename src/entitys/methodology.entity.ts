@@ -86,11 +86,6 @@ export class CreateTestProtocolInput {
 // ====================================================================
 @InputType()
 export class UpdateTestProtocolInput {
-  @Field(() => String)
-  @IsNotEmpty()
-  @IsString()
-  id: string;
-
   @Field(() => String, { nullable: true })
   @IsOptional()
   @IsString()

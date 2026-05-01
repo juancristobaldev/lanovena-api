@@ -31,6 +31,9 @@ export class FinanceService {
         schoolId,
         month,
         year,
+        player: {
+          scholarship: false,
+        },
       },
       _sum: {
         amount: true,
@@ -88,6 +91,9 @@ export class FinanceService {
         month,
         year,
         ...(status ? { status } : {}),
+        player: {
+          scholarship: false,
+        },
       },
       include: {
         // Incluimos datos del jugador y su categoría para mostrar en la tabla

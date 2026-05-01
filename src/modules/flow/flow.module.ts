@@ -10,5 +10,6 @@ import { HttpModule } from '@nestjs/axios';
 
   providers: [FlowService],
   controllers: [SubscriptionController, FlowController],
+  exports: [FlowService],
 })
 export class FlowModule {}

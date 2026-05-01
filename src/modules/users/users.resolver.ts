@@ -116,38 +116,66 @@ export class UsersResolver {
   }
 
   @Query(() => [UserEntity])
-  @Roles(Role.SUPERADMIN, Role.DIRECTOR)
+  @Roles(Role.SUPERADMIN, Role.DIRECTOR, Role.SUBADMIN)
   async guardiansBySchool(
     @Args('schoolId', { type: () => String, nullable: true }) schoolId: string,
     @CurrentUser() user: UserEntity,
   ) {
-    // Si es Director, forzamos su ID de escuela. Si es Admin, usa el parámetro.
-
-    console.log(schoolId);
-
     if (!schoolId) throw new Error('School ID is required');
 
-    const schools = await this.prisma.user.findMany({
-      where: {
-        role: 'GUARDIAN',
-      },
-    });
+    if (user.role === Role.SUBADMIN) {
+      const school = await this.prisma.school.findFirst({
+        where: {
+          id: schoolId,
+          macroEntity: {
+            adminId: user.id,
+          },
+        },
+      });
 
-    console.log(schools);
+      if (!school) {
+        throw new ForbiddenException('No tienes acceso a esta escuela');
+      }
+    }
+
+    if (user.role === Role.DIRECTOR && user.schoolId !== schoolId) {
+      throw new ForbiddenException('No tienes acceso a esta escuela');
+    }
+
     return this.prisma.user.findMany({
       where: {
+        role: Role.GUARDIAN,
         schoolId: schoolId,
+      },
+      include: {
+        managedPlayers: true,
       },
     });
   }
 
   @Query(() => [UserEntity])
-  @Roles(Role.SUPERADMIN, Role.DIRECTOR)
+  @Roles(Role.SUPERADMIN, Role.DIRECTOR, Role.SUBADMIN)
   async usersByRole(
     @Args('role', { type: () => Role }) role: Role,
     @Args('schoolId', { type: () => String }) schoolId: string,
+    @CurrentUser() user: UserEntity,
   ) {
     console.log({ role, schoolId });
+    if (user.role === Role.SUBADMIN) {
+      const school = await this.prisma.school.findFirst({
+        where: {
+          id: schoolId,
+          macroEntity: {
+            adminId: user.id,
+          },
+        },
+      });
+
+      if (!school) {
+        throw new ForbiddenException('No tienes acceso a esta escuela');
+      }
+    }
+
     // Aprovechamos el schoolId del usuario autenticado para seguridad
     const users = await this.prisma.user.findMany({
       where: {
@@ -191,7 +219,7 @@ export class UsersResolver {
    * =========================================================================== */
 
   @Query(() => [UserEntity])
-  @Roles(Role.SUPERADMIN, Role.DIRECTOR)
+  @Roles(Role.SUPERADMIN, Role.DIRECTOR, Role.SUBADMIN)
   users(@CurrentUser() user: UserEntity) {
     return this.usersService.findAll(user);
   }
@@ -208,6 +236,7 @@ export class UsersResolver {
           include: {
             attendance: true,
             school: true,
+            monthlyPayments: true,
             category: {
               include: {
                 sessions: true,
@@ -299,7 +328,7 @@ export class UsersResolver {
   }
 
   @Query(() => UserEntity)
-  @Roles(Role.SUPERADMIN, Role.DIRECTOR)
+  @Roles(Role.SUPERADMIN, Role.DIRECTOR, Role.SUBADMIN)
   userById(
     @Args('userId', { type: () => ID }) userId: string,
     @CurrentUser() user: UserEntity,
@@ -308,7 +337,7 @@ export class UsersResolver {
   }
 
   @Query(() => UserEntity)
-  @Roles(Role.SUPERADMIN, Role.DIRECTOR)
+  @Roles(Role.SUPERADMIN, Role.DIRECTOR, Role.SUBADMIN)
   async coachById(
     @Args('coachId', { type: () => ID }) coachId: string,
     @CurrentUser() user: UserEntity,
@@ -372,7 +401,7 @@ export class UsersResolver {
   }
 
   @Query(() => [UserEntity])
-  @Roles(Role.DIRECTOR, Role.SUPERADMIN)
+  @Roles(Role.DIRECTOR, Role.SUPERADMIN, Role.SUBADMIN)
   coaches(
     @CurrentUser() user: UserEntity,
     @Args('schoolId', { type: () => ID, nullable: true }) schoolId?: string,
@@ -404,7 +433,7 @@ export class UsersResolver {
   }
 
   @Query(() => [UserEntity])
-  @Roles(Role.DIRECTOR, Role.COACH, Role.SUPERADMIN)
+  @Roles(Role.DIRECTOR, Role.COACH, Role.SUPERADMIN, Role.SUBADMIN)
   guardians(
     @CurrentUser() user: UserEntity,
     @Args('schoolId', { type: () => ID, nullable: true }) schoolId?: string,

@@ -3,6 +3,7 @@ import {
   ConflictException,
   NotFoundException,
   ForbiddenException,
+  UnauthorizedException,
 } from '@nestjs/common';
 
 import { Prisma, Role, User } from '@prisma/client';
@@ -66,7 +67,10 @@ export class UsersService {
     });
   }
 
-  async findById(userId: string, actor: { role: Role; schoolId?: string }) {
+  async findById(
+    userId: string,
+    actor: { id: string; role: Role; schoolId?: string },
+  ) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -83,11 +87,19 @@ export class UsersService {
       },
     });
 
-    if (!user) {
+    if (!user || !user.schoolId) {
       throw new NotFoundException('Usuario no encontrado');
     }
 
-    if (actor.role === Role.DIRECTOR && user.schoolId !== actor.schoolId) {
+    const staff = await this.prisma.schoolStaff.findFirst({
+      where: {
+        schoolId: user.schoolId,
+        userId: actor.id,
+      },
+    });
+
+    console.log({ actor, user });
+    if (actor.role === Role.DIRECTOR && !staff) {
       throw new ForbiddenException('Acceso denegado');
     }
 
@@ -170,6 +182,8 @@ export class UsersService {
       },
     });
 
+    console.log({ staff, actor });
+
     if (!target) {
       throw new NotFoundException('Usuario no encontrado');
     }
@@ -181,6 +195,19 @@ export class UsersService {
     let hashedPassword: any = data.password;
     if (data.password) hashedPassword = await bcrypt.hash(hashedPassword, 10);
 
+    if (data.email) {
+      const email: any = data.email;
+      const user = await this.prisma.user.findFirst({
+        where: {
+          email: email,
+        },
+      });
+
+      if (user && user.id !== userId)
+        throw new UnauthorizedException(
+          'Ya existe un usuario con este correo.',
+        );
+    }
     console.log({ data });
     return this.prisma.user.update({
       where: { id: userId },

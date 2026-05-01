@@ -15,6 +15,12 @@ enum ExerciseDifficulty {
   ADVANCED
 }
 
+enum TieBreakerType {
+  GOAL_DIFFERENCE
+  GOALS_FOR
+  HEAD_TO_HEAD
+}
+
 enum PlayerPosition {
   GK // Arquero
   DEF // Defensa
@@ -28,6 +34,7 @@ enum Role {
   DIRECTOR
   COACH
   GUARDIAN
+  PLANNER
 }
 
 enum SchoolMode {
@@ -39,13 +46,6 @@ enum SessionStatus {
   SCHEDULED // Programado
   COMPLETED // Finalizado
   CANCELLED // Cancelado
-}
-
-enum PlanType {
-  SEMILLERO
-  PROFESIONAL
-  ALTO_RENDIMIENTO
-  GOLD_NETWORK
 }
 
 enum CategoryType {
@@ -169,9 +169,16 @@ enum GlobalAssetType {
 }
 
 enum TargetAudience {
+  DIRECTOR
   COACH
   PLAYER
   GUARDIAN
+}
+
+
+enum ViaNotice {
+  EMAIL
+  APP
 }
 
 enum TournamentStatus {
@@ -191,7 +198,7 @@ model MacroEntity {
   // Relaciones
   adminId String   @unique // Un usuario SubAdmin por MacroEntidad
   admin   User     @relation("MacroEntityAdmin", fields: [adminId], references: [id])
-  schools School[] // Escuelas que pertenecen a esta entidad
+  schools School[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -201,15 +208,171 @@ model Tournament {
   id       String           @id @default(uuid())
   name     String
   format   LeagueFormat
-  settings Json? // Para guardar configs dinámicas (ruedas, ascensos, llaves)
+  settings TournamentSettings?
   status   TournamentStatus @default(PENDING_PAYMENT)
 
-  // Relaciones
   organizerId String
-  organizer   User   @relation("TournamentOrganizer", fields: [organizerId], references: [id])
+  organizer   User @relation("TournamentOrganizer", fields: [organizerId], references: [id],onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Relaciones
+  teams     TournamentTeam[]
+  matches   TournamentMatch[]
+  standings TournamentStanding[]
+
+  plannerId String
+  planner   User @relation("TournamentPlanner", fields: [plannerId], references: [id],onDelete: Cascade)
+
+}
+
+model TournamentSettings {
+  id String @id @default(uuid())
+
+  tournamentId String @unique
+  tournament   Tournament @relation(fields: [tournamentId], references: [id],onDelete:Cascade)
+
+  // ⚽ FORMATO GENERAL
+  maxTeams Int?
+  rounds Int? // cantidad de vueltas (ida, ida/vuelta)
+
+  // 🏆 PUNTOS
+  pointsWin  Int @default(3)
+  pointsDraw Int @default(1)
+  pointsLoss Int @default(0)
+
+  // ⚖️ REGLAS DE DESEMPATE
+  tieBreaker TieBreakerType @default(GOAL_DIFFERENCE)
+
+  // 🥅 GOLES
+  allowDraws Boolean @default(true)
+
+  // 🏁 PLAYOFFS
+  hasPlayoffs Boolean @default(false)
+  playoffTeams Int? // ej: 4 u 8
+
+  // 👥 GRUPOS
+  hasGroups Boolean @default(false)
+  groupsCount Int?
+
+  // ⏱ CONFIG PARTIDOS
+  matchDuration Int @default(90) // minutos
+  allowExtraTime Boolean @default(false)
+  allowPenalties Boolean @default(false)
+
+  // 📅 CONFIG CALENDARIO
+  matchesPerWeek Int @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TournamentTeam {
+  id   String @id @default(uuid())
+  name String
+  logoUrl String?
+
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  players   TournamentPlayer[]
+  standings TournamentStanding[]
+
+  // Relaciones inversas de partidos
+  homeMatches TournamentMatch[] @relation("HomeTeam")
+  
+  
+  awayMatches TournamentMatch[] @relation("AwayTeam")
+}
+
+model TournamentPlayer {
+  id String @id @default(uuid())
+
+  firstName String
+  lastName  String
+  number    Int?
+
+  position PlayerPosition?
+
+  teamId String
+  team   TournamentTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  stats TournamentPlayerStat[]
+
+  createdAt DateTime @default(now())
+}
+
+model TournamentMatch {
+  id String @id @default(uuid())
+
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  homeTeamId String
+  awayTeamId String
+
+  homeTeam TournamentTeam @relation("HomeTeam", fields: [homeTeamId], references: [id], onDelete: Cascade)
+  awayTeam TournamentTeam @relation("AwayTeam", fields: [awayTeamId], references: [id], onDelete: Cascade)
+
+  homeScore Int @default(0)
+  awayScore Int @default(0)
+
+  date DateTime
+  round Int
+
+
+
+  status MatchStatus
+
+  stats TournamentPlayerStat[]
+
+  @@index([tournamentId])
+}
+
+model TournamentPlayerStat {
+  id String @id @default(uuid())
+
+  playerId String
+  player   TournamentPlayer @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  matchId String
+  match   TournamentMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  goals Int @default(0)
+  assists Int @default(0)
+  yellowCards Int @default(0)
+  redCards Int @default(0)
+
+  @@unique([playerId, matchId])
+}
+
+model TournamentStanding {
+  id String @id @default(uuid())
+
+  teamId String
+  team   TournamentTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  played Int @default(0)
+  wins Int @default(0)
+  draws Int @default(0)
+  losses Int @default(0)
+
+  goalsFor Int @default(0)
+  goalsAgainst Int @default(0)
+
+  points Int @default(0)
+
+  @@unique([teamId, tournamentId])
+}
+
+enum MatchStatus {
+  SCHEDULED
+  PLAYED
+  CANCELLED
 }
 
 model GlobalAsset {
@@ -238,6 +401,17 @@ model User {
   fullName  String
   phone     String?
   role      Role     @default(GUARDIAN)
+  flowCustomerId String? @unique
+  flowSubscriptionId String?
+  flowPlanId String?
+  flowSubscriptionStatus String?
+  flowCardStatus String?
+  flowCardLast4 String?
+  flowCardType String?
+  flowLastPaymentStatus Int?
+  flowLastToken String?
+  flowCurrentPeriodEnd DateTime?
+  flowNextBillingDate DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   isActive  Boolean  @default(true)
@@ -256,6 +430,41 @@ model User {
   // --- NUEVAS RELACIONES ---
   assignedTasks Task[]          @relation("UserTasks") // Tareas asignadas al usuario (Staff)
   adminAuditLog AdminAuditLog[]
+  schoolGalleryPhotos SchoolGalleryPhoto[] @relation("SchoolGalleryPhotosCreatedBy")
+  flowWebhookEvents FlowWebhookEvent[]
+  supportTickets SupportTicket[]
+  
+  tournamentPlanners Tournament[]  @relation("TournamentPlanner") //
+}
+
+model SupportTicket {
+  id        String   @id @default(uuid())
+  title     String
+  message   String   @db.Text
+  status    String   @default("OPEN")
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+}
+
+model FlowWebhookEvent {
+  id String @id @default(uuid())
+  token String @unique
+  eventType String
+  payload Json?
+  status String
+  error String?
+  processedAt DateTime?
+  directorId String?
+  director User? @relation(fields: [directorId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([eventType, createdAt])
 }
 
 model School {
@@ -265,9 +474,12 @@ model School {
   logoUrl            String?
   mode               SchoolMode @default(COMMERCIAL)
   bankDetails        String?    @db.Text
-  planType           PlanType   @default(SEMILLERO)
-  subscriptionStatus String
+  planLimitId        String?
+  planLimit          PlanLimit? @relation(fields: [planLimitId], references: [id])
+  subscriptionStatus String?
   nextBillingDate    DateTime?
+  macroEntityId      String?
+  macroEntity        MacroEntity? @relation(fields: [macroEntityId], references: [id])
 
   isActive Boolean? @default(true) // Usado para el "Kill Mode"
 
@@ -279,11 +491,14 @@ model School {
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 
-  macroEntityId String? // Opcional, porque pueden haber escuelas independientes
-  macroEntity   MacroEntity?  @relation(fields: [macroEntityId], references: [id])
+
+  monthlyFee Float @default(20000)
+  latitude   Float?
+  longitude  Float?
+
   staff         SchoolStaff[] // 👈 directores, coaches, etc.
 
-  monthlyFees MonthlyFee[]
+  monthlyPayments MonthlyFee[]
 
   // --- NUEVAS RELACIONES ---
   // Growth Hacking: Sistema de Referidos
@@ -300,6 +515,27 @@ model School {
   tasks Task[]
 
   notices Notice[]
+  galleryPhotos SchoolGalleryPhoto[]
+
+  @@index([macroEntityId])
+  @@index([planLimitId])
+}
+
+model SchoolGalleryPhoto {
+  id String @id @default(uuid())
+
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  key     String
+  caption String?
+
+  createdById String?
+  createdBy   User? @relation("SchoolGalleryPhotosCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([schoolId, createdAt])
 }
 
 model Notice {
@@ -517,6 +753,8 @@ model Match {
   isHome     Boolean  @default(true)
   location   String?
   notes      String?
+  
+
   // Relación con categoría
   categoryId String
   category   Category @relation(fields: [categoryId], references: [id])
@@ -571,6 +809,7 @@ model TestProtocol {
 
   evaluations Evaluation[]
 }
+
 
 // 3. Modelo de Evaluación (Normalizado)
 model Evaluation {
@@ -627,13 +866,24 @@ model MonthlyFee {
   playerId    String
   player      Player        @relation(fields: [playerId], references: [id])
   paymentDate DateTime?
-createdAt DateTime? @default(now())
+  createdAt DateTime? @default(now())
   // --- NUEVA RELACIÓN DIRECTA (OPTIMIZACIÓN) ---
   schoolId      String
   school        School  @relation(fields: [schoolId], references: [id])
   paymentMethod String?
 
   receiptUrl String?
+
+  @@unique([playerId, month, year])
+}
+
+model GlobalNotice {
+  id       String  @id @default(uuid())
+  targetAudience TargetAudience?
+  title          String
+  description    String
+  via ViaNotice
+  createdAt DateTime? @default(now())
 }
 
 model Product {
@@ -731,14 +981,17 @@ model Task {
 
 // --- F. CONFIGURACIÓN DE PLANES (LIMITES) ---
 model PlanLimit {
-  id       String   @id @default(uuid())
-  planType PlanType @unique // 1 registro por tipo de plan
+  id                    String   @id @default(uuid())
+  name                  String
+  amount                Int
+  isActive              Boolean  @default(true)
+  interval              String   @default("BOTH")
+  flowId                String?
+  flowIdYearly          String?
+  maxSchools            Int
+  maxPlayersPerSchool   Int
+  maxCategories         Int
+  maxGuardianPerPlayer  Int      @map("maxGuardianPerSchools")
 
-  maxStudents   Int // Ej: 80 para SEMILLERO
-  maxCategories Int // Ej: 6
-  maxCoaches    Int // Ej: 3
-
-  allowsStore     Boolean @default(false)
-  allowsGlobalLib Boolean @default(false)
-  allowsFinance   Boolean @default(false)
+  schools School[]
 }

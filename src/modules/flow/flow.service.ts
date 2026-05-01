@@ -1,11 +1,20 @@
 // src/modules/flow/flow.service.ts
 
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import * as crypto from 'crypto';
 import { URLSearchParams } from 'url';
+
+export class FlowApiException extends BadRequestException {
+  constructor(
+    public readonly flowCode: number | string | undefined,
+    public readonly flowMessage: string,
+    public readonly endpoint: string,
+  ) {
+    super(`Flow ${endpoint}: [${flowCode ?? 'unknown'}] ${flowMessage}`);
+  }
+}
 
 @Injectable()
 export class FlowService {
@@ -14,7 +23,7 @@ export class FlowService {
   private readonly apiUrl: string;
   private readonly logger = new Logger(FlowService.name);
 
-    constructor(private readonly httpService: HttpService) {
+  constructor(private readonly httpService: HttpService) {
     this.apiKey = process.env.FLOW_API_KEY || '';
     this.secretKey = process.env.FLOW_SECRET_KEY || '';
     this.apiUrl = process.env.FLOW_API_URL || '';
@@ -41,8 +50,14 @@ export class FlowService {
     params: Record<string, any>,
     method: 'post' | 'get' = 'post',
   ) {
-    const s = this.signParams(params);
-    const body = new URLSearchParams({ ...params, s });
+    const cleanedParams = Object.fromEntries(
+      Object.entries(params).filter(
+        ([, value]) => value !== undefined && value !== null,
+      ),
+    );
+
+    const s = this.signParams(cleanedParams);
+    const body = new URLSearchParams({ ...cleanedParams, s });
 
     try {
       const url = `${this.apiUrl}${endpoint}`;
@@ -55,8 +70,18 @@ export class FlowService {
         }),
       );
       return response.data;
-    } catch (err) {
-      this.logger.error(endpoint, err.response?.data || err.message);
+    } catch (err: any) {
+      const flowError = err.response?.data;
+      this.logger.error(endpoint, flowError || err.message);
+
+      if (flowError?.code || flowError?.message) {
+        throw new FlowApiException(
+          flowError?.code,
+          flowError?.message || 'Flow API error',
+          endpoint,
+        );
+      }
+
       throw new BadRequestException('Error comunicándose con Flow');
     }
   }
@@ -127,11 +152,25 @@ export class FlowService {
     });
   }
 
+  extractCustomerId(customerPayload: any): string | null {
+    const rawId = customerPayload?.customerId ?? customerPayload?.id ?? null;
+    if (!rawId) {
+      return null;
+    }
+
+    const customerId = String(rawId).trim();
+    return customerId.length > 0 ? customerId : null;
+  }
+
   async registerCustomerCard(customerId: string) {
+    const urlReturn =
+      process.env.FLOW_REGISTER_RETURN_URL ||
+      `${process.env.ENDPOINT_API || 'http://localhost:4000'}/flow/hooks/card-return`;
+
     const response = await this.sendRequest('/customer/register', {
       apiKey: this.apiKey,
       customerId,
-      url_return: `${process.env.ENDPOINT_FRONTEND}/api/callback-register-card`,
+      url_return: urlReturn,
     });
 
     return {
@@ -199,6 +238,9 @@ export class FlowService {
       apiKey: this.apiKey,
       customerId: params.customerId,
       planId: params.planId,
+      couponId: params.couponId,
+      trial_period_days: params.trialDays,
+      periods_number: params.periodsNumber,
     });
   }
 
@@ -208,5 +250,19 @@ export class FlowService {
       { apiKey: this.apiKey, subscriptionId },
       'get',
     );
+  }
+
+  async cancelSubscription(subscriptionId: string) {
+    return this.sendRequest('/subscription/cancel', {
+      apiKey: this.apiKey,
+      subscriptionId,
+    });
+  }
+
+  async deleteCustomer(customerId: string) {
+    return this.sendRequest('/customer/delete', {
+      apiKey: this.apiKey,
+      customerId,
+    });
   }
 }

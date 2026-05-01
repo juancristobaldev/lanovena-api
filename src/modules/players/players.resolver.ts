@@ -8,7 +8,7 @@ import {
   ResolveField,
   Parent,
 } from '@nestjs/graphql';
-import { UseGuards } from '@nestjs/common';
+import { ForbiddenException, UseGuards } from '@nestjs/common';
 import { PaymentStatus, Role } from '@prisma/client';
 import {
   CreatePlayerInput,
@@ -168,7 +168,7 @@ export class PlayersResolver {
     };
   }
 
-  @Roles(Role.DIRECTOR)
+  @Roles(Role.DIRECTOR, Role.COACH)
   @Mutation(() => PlayerEntity)
   updatePlayer(
     @Args('playerId', { type: () => String }) playerId: string,
@@ -189,19 +189,39 @@ export class PlayersResolver {
 
   /* ===================== QUERIES ===================== */
   @Query(() => [PlayerEntity])
-  playersBySchool(
+  @Roles(Role.SUPERADMIN, Role.DIRECTOR, Role.SUBADMIN)
+  async playersBySchool(
     @Args('schoolId', { type: () => String, nullable: true }) schoolId: string,
     @CurrentUser() user: UserEntity,
   ) {
-    // Si es SuperAdmin y envía ID, usa ese. Si es Director, fuerza su propio ID.
-    const targetSchoolId =
-      (user.role === 'SUPERADMIN' || user?.role === 'DIRECTOR') && schoolId
-        ? schoolId
-        : user.schoolId;
+    let targetSchoolId = user.schoolId;
+
+    if (user.role === Role.SUPERADMIN) {
+      targetSchoolId = schoolId || user.schoolId;
+    }
+
+    if (user.role === Role.SUBADMIN) {
+      targetSchoolId = schoolId;
+
+      const school = await this.prisma.school.findFirst({
+        where: {
+          id: schoolId,
+          macroEntity: {
+            adminId: user.id,
+          },
+        },
+      });
+
+      if (!school) {
+        throw new ForbiddenException('No tienes acceso a esta escuela');
+      }
+    }
+
+    if (!targetSchoolId) {
+      throw new Error('School ID is required');
+    }
 
     return this.playersService.findBySchool(targetSchoolId);
-    // NOTA: Asegúrate de tener este método en playersService que haga:
-    // prisma.player.findMany({ where: { schoolId } })
   }
 
   @Roles(Role.COACH)

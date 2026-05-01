@@ -1,13 +1,18 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
+  Query,
   Logger,
   BadRequestException,
   HttpCode,
+  Res,
 } from '@nestjs/common';
 import { FlowService } from './flow.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { Role } from '@prisma/client';
+import { Response } from 'express';
 
 @Controller('flow/hooks')
 export class FlowController {
@@ -17,6 +22,28 @@ export class FlowController {
     private readonly flowService: FlowService,
     private readonly prisma: PrismaService,
   ) {}
+
+  private redirectCardReturn(token: string | undefined, res: Response) {
+    const frontendUrl =
+      process.env.ENDPOINT_FRONTEND || 'http://localhost:3000';
+
+    const callbackUrl = token
+      ? `${frontendUrl}/flow/callback-register-card?token=${encodeURIComponent(token)}`
+      : `${frontendUrl}/flow/callback-register-card`;
+
+    return res.redirect(callbackUrl);
+  }
+
+  @Post('card-return')
+  @HttpCode(302)
+  cardReturnPost(@Body('token') token: string, @Res() res: Response) {
+    return this.redirectCardReturn(token, res);
+  }
+
+  @Get('card-return')
+  cardReturnGet(@Query('token') token: string, @Res() res: Response) {
+    return this.redirectCardReturn(token, res);
+  }
 
   /**
    * WEBHOOK 1: Validación de Registro de Tarjeta
@@ -30,35 +57,101 @@ export class FlowController {
     if (!token) throw new BadRequestException('Token requerido');
 
     try {
+      const existingEvent = await this.prisma.flowWebhookEvent.findUnique({
+        where: { token },
+      });
+
+      if (existingEvent?.status === 'PROCESSED') {
+        return { success: true, message: 'Token ya procesado' };
+      }
+
+      if (!existingEvent) {
+        await this.prisma.flowWebhookEvent.create({
+          data: {
+            token,
+            eventType: 'CARD_REGISTERED',
+            status: 'RECEIVED',
+          },
+        });
+      }
+
       // Consultar estado a Flow
       const status = await this.flowService.getRegisterStatus(token);
 
       // Status 1 = Tarjeta Inscrita Exitosamente
-      if (status.status === 1) {
+      if (Number(status.status) === 1) {
         const flowCustomerId = status.customerId;
-        // Extraer ID de escuela del customerId (formato: "school_UUID")
-        const schoolId = flowCustomerId.replace('school_', '');
+        const director = await this.prisma.user.findFirst({
+          where: {
+            flowCustomerId,
+            role: Role.DIRECTOR,
+          },
+        });
 
-        await this.prisma.school.update({
-          where: { id: schoolId },
+        if (!director) {
+          throw new BadRequestException(
+            `No existe director para flowCustomerId ${flowCustomerId}`,
+          );
+        }
+
+        await this.prisma.user.update({
+          where: { id: director.id },
           data: {
-            // Aquí podrías guardar flags indicando que ya tiene tarjeta
-            // hasPaymentMethod: true
-            // creditCardLast4: status.last4CardDigits (si Flow lo devuelve)
+            flowCardStatus: 'REGISTERED',
+            flowCardLast4: status.last4CardDigits ?? null,
+            flowCardType: status.creditCardType ?? null,
+            flowLastToken: token,
+          },
+        });
+
+        await this.prisma.flowWebhookEvent.update({
+          where: { token },
+          data: {
+            directorId: director.id,
+            payload: status,
+            status: 'PROCESSED',
+            processedAt: new Date(),
           },
         });
 
         this.logger.log(
-          `Tarjeta registrada exitosamente para escuela ${schoolId}`,
+          `Tarjeta registrada exitosamente para director ${director.id}`,
         );
         return { success: true, message: 'Tarjeta validada' };
       } else {
+        await this.prisma.flowWebhookEvent.update({
+          where: { token },
+          data: {
+            payload: status,
+            status: 'FAILED',
+            error: 'Registro de tarjeta no exitoso',
+            processedAt: new Date(),
+          },
+        });
+
         throw new BadRequestException(
           'El registro de la tarjeta no fue exitoso',
         );
       }
     } catch (error) {
       this.logger.error(`Error validando tarjeta: ${error.message}`);
+
+      await this.prisma.flowWebhookEvent.upsert({
+        where: { token },
+        update: {
+          status: 'FAILED',
+          error: error.message,
+          processedAt: new Date(),
+        },
+        create: {
+          token,
+          eventType: 'CARD_REGISTERED',
+          status: 'FAILED',
+          error: error.message,
+          processedAt: new Date(),
+        },
+      });
+
       throw new BadRequestException(
         'Error al validar el registro de la tarjeta',
       );
@@ -82,39 +175,88 @@ export class FlowController {
     }
 
     try {
+      const existingEvent = await this.prisma.flowWebhookEvent.findUnique({
+        where: { token },
+      });
+
+      if (existingEvent?.status === 'PROCESSED') {
+        return;
+      }
+
+      if (!existingEvent) {
+        await this.prisma.flowWebhookEvent.create({
+          data: {
+            token,
+            eventType: 'SUBSCRIPTION_PAYMENT',
+            status: 'RECEIVED',
+          },
+        });
+      }
+
       const paymentStatus = await this.flowService.getPaymentStatus(token);
 
-      // Verificamos si es un pago exitoso (Status 2)
-      if (paymentStatus.status === 2) {
-        // Es un cobro de suscripción?
-        if (this.flowService.isSubscriptionPayment(paymentStatus)) {
-          // El 'subject' o 'payer' nos ayuda a identificar, pero lo más seguro
-          // es usar el commerceOrder si lo vinculamos, o el payer email.
+      const payerEmail = paymentStatus.payer;
+      const director = await this.prisma.user.findFirst({
+        where: {
+          role: Role.DIRECTOR,
+          OR: [
+            paymentStatus.subscriptionId
+              ? { flowSubscriptionId: paymentStatus.subscriptionId }
+              : undefined,
+            payerEmail ? { email: payerEmail } : undefined,
+          ].filter(Boolean) as any,
+        },
+      });
 
-          // Opción A: Buscar escuela por email del pagador
-          const payerEmail = paymentStatus.payer;
-
-          // Actualizamos la fecha de vigencia de la suscripción
-          // Asumiendo que el pago cubre 1 mes
-          const nextBillingDate = new Date();
-          nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
-
-          await this.prisma.school.updateMany({
-            where: {
-              // Nota: Ideal tener flowCustomerId en el modelo School para ser exactos
-              users: { some: { email: payerEmail, role: 'DIRECTOR' } },
-            },
-            data: {
-              subscriptionStatus: 'ACTIVE',
-              nextBillingDate: nextBillingDate,
-            },
-          });
-
-          this.logger.log(`Pago de suscripción procesado para: ${payerEmail}`);
-        }
+      if (!director) {
+        throw new BadRequestException('No se encontró director para el pago');
       }
+
+      const flowStatus = Number(paymentStatus.status);
+      const isPaid = flowStatus === 2;
+      const nextBillingDate = new Date();
+      nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
+
+      await this.prisma.user.update({
+        where: { id: director.id },
+        data: {
+          flowSubscriptionStatus: isPaid ? 'ACTIVE' : 'PENDING',
+          flowLastPaymentStatus: flowStatus,
+          flowLastToken: token,
+          flowNextBillingDate: isPaid ? nextBillingDate : director.flowNextBillingDate,
+        },
+      });
+
+      await this.prisma.flowWebhookEvent.update({
+        where: { token },
+        data: {
+          directorId: director.id,
+          payload: paymentStatus,
+          status: 'PROCESSED',
+          processedAt: new Date(),
+        },
+      });
+
+      this.logger.log(`Pago de suscripción procesado para director: ${director.id}`);
     } catch (error) {
       this.logger.error('Error procesando pago recurrente', error);
+
+      await this.prisma.flowWebhookEvent.upsert({
+        where: { token },
+        update: {
+          status: 'FAILED',
+          error: error.message,
+          processedAt: new Date(),
+        },
+        create: {
+          token,
+          eventType: 'SUBSCRIPTION_PAYMENT',
+          status: 'FAILED',
+          error: error.message,
+          processedAt: new Date(),
+        },
+      });
+
       // No lanzamos error para evitar reintentos infinitos si es error de lógica interna
     }
   }

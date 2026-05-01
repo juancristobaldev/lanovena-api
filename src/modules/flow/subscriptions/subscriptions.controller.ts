@@ -9,9 +9,9 @@ import {
 } from '@nestjs/common';
 
 import { User, Role } from '@prisma/client';
-import { FlowService } from '../flow.service';
+import { FlowApiException, FlowService } from '../flow.service';
 import { PrismaService } from '../../../modules/prisma/prisma.service';
-import { GqlAuthGuard } from '../../../auth/guards/gql-auth.guard';
+import { HttpAuthGuard } from '../../../auth/guards/http-auth.guard';
 import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
 
 @Controller('flow/subscription')
@@ -29,7 +29,7 @@ export class SubscriptionController {
    * Retorna la URL de redirección a Flow.
    */
   @Post('register-card')
-  @UseGuards(GqlAuthGuard)
+  @UseGuards(HttpAuthGuard)
   async registerCard(@CurrentUser() user: User) {
     // 1. Validar que sea Director
     if (user.role !== Role.DIRECTOR && user.role !== Role.SUPERADMIN) {
@@ -38,39 +38,97 @@ export class SubscriptionController {
       );
     }
 
-    if (!user.schoolId)
-      throw new InternalServerErrorException('no esta asociado a una escuela');
-    const school = await this.prisma.school.findUnique({
-      where: { id: user.schoolId },
+    const director = await this.prisma.user.findUnique({
+      where: { id: user.id },
+      select: {
+        id: true,
+        role: true,
+        fullName: true,
+        email: true,
+        flowCustomerId: true,
+      },
     });
-    if (!school) throw new BadRequestException('Escuela no encontrada');
 
-    // 2. Definir ID de Cliente para Flow (Usamos el ID de la escuela)
-    const flowCustomerId = `school_${school.id}`;
-
-    // 3. Crear o Actualizar Cliente en Flow
-    // Intentamos crearlo; si ya existe, Flow suele manejarlo o podemos ignorar el error específico
-    try {
-      await this.flowService.createCustomer(
-        school.name,
-        user.email,
-        flowCustomerId,
-      );
-    } catch (error) {
-      this.logger.warn(
-        `Cliente Flow ${flowCustomerId} ya existía o error menor: ${error.message}`,
-      );
+    if (!director) {
+      throw new InternalServerErrorException('Director no encontrado');
     }
 
-    // 4. Solicitar registro de tarjeta
-    // Esto devuelve el token y la URL a donde enviar al usuario
-    const response =
-      await this.flowService.registerCustomerCard(flowCustomerId);
+    if (!director.fullName?.trim()) {
+      throw new BadRequestException('El director no tiene nombre configurado');
+    }
 
-    return {
-      redirectUrl: response.redirectUrl, // Frontend redirige aquí
-      token: response.token,
-    };
+    if (!director.email?.trim()) {
+      throw new BadRequestException('El director no tiene email configurado');
+    }
+
+    // 2. Definir externalId local e intentar resolver customerId real en Flow
+    const externalId = `director_${director.id}`;
+    const isLegacyExternalId = director.flowCustomerId === externalId;
+    let flowCustomerId = !isLegacyExternalId ? director.flowCustomerId : null;
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        flowCardStatus: 'PENDING',
+      },
+    });
+
+    try {
+      if (!flowCustomerId) {
+        const createdCustomer = await this.flowService.createCustomer(
+          director.fullName,
+          director.email,
+          externalId,
+        );
+
+        const createdCustomerId = this.flowService.extractCustomerId(createdCustomer);
+        if (!createdCustomerId) {
+          throw new BadRequestException(
+            'Flow no devolvió customerId al crear el cliente',
+          );
+        }
+
+        flowCustomerId = createdCustomerId;
+
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            flowCustomerId,
+          },
+        });
+      }
+
+      // 4. Solicitar registro de tarjeta
+      const response = await this.flowService.registerCustomerCard(flowCustomerId);
+
+      return {
+        redirectUrl: response.redirectUrl,
+        token: response.token,
+      };
+    } catch (error: any) {
+      await this.prisma.user.update({
+        where: { id: director.id },
+        data: {
+          flowCardStatus: 'FAILED',
+          flowSubscriptionStatus: null,
+          flowLastToken: null,
+        },
+      });
+
+      this.logger.error(
+        `Flow register-card rollback for ${director.id}: ${error.message}`,
+      );
+
+      if (error instanceof FlowApiException) {
+        throw new BadRequestException(
+          `No se pudo iniciar el registro en Flow: ${error.flowMessage}`,
+        );
+      }
+
+      throw new BadRequestException(
+        'No se pudo iniciar el registro de tarjeta en Flow',
+      );
+    }
   }
 
   /**
@@ -78,35 +136,68 @@ export class SubscriptionController {
    * Se llama DESPUÉS de que el webhook de 'register-card' confirma que la tarjeta está lista.
    */
   @Post('create')
-  @UseGuards(GqlAuthGuard)
+  @UseGuards(HttpAuthGuard)
   async createSubscription(
     @CurrentUser() user: User,
-    @Body('planType') planType: string, // 'SEMILLERO', 'PROFESIONAL', 'ALTO_RENDIMIENTO'
+    @Body('planLimitId') planLimitId: string,
+    @Body('billingCycle') billingCycle: 'mensual' | 'anual' = 'mensual',
   ) {
-    if (!user.schoolId)
-      throw new InternalServerErrorException('no esta asociado a una escuela');
-    const school = await this.prisma.school.findUnique({
-      where: { id: user.schoolId },
+    if (user.role !== Role.DIRECTOR && user.role !== Role.SUPERADMIN) {
+      throw new BadRequestException(
+        'Solo el Director puede gestionar la suscripción',
+      );
+    }
+
+    const director = await this.prisma.user.findUnique({
+      where: { id: user.id },
     });
+
+    if (!director) {
+      throw new InternalServerErrorException('Director no encontrado');
+    }
+
+    if (!director.flowCustomerId) {
+      throw new BadRequestException('Primero registra una tarjeta en Flow');
+    }
+
+    if (director.flowCardStatus !== 'REGISTERED') {
+      throw new BadRequestException(
+        'La tarjeta aún no está registrada o validada',
+      );
+    }
 
     // Validar que la tarjeta esté registrada (esto lo actualizó el webhook previamente)
     // Asumimos que guardaste un flag 'hasCard' o verificas el estado
     // if (!school.hasPaymentMethod) throw new BadRequestException('Primero registra una tarjeta');
 
-    // Mapeo de IDs de Planes en Flow
-    const FLOW_PLAN_IDS = {
-      SEMILLERO: 'plan_semillero_v1',
-      PROFESIONAL: 'plan_pro_v1',
-      ALTO_RENDIMIENTO: 'plan_elite_v1',
-    };
+    if (!planLimitId) {
+      throw new BadRequestException('Debes indicar planLimitId');
+    }
 
-    const flowPlanId = FLOW_PLAN_IDS[planType];
-    if (!flowPlanId) throw new BadRequestException('Tipo de plan no válido');
+    const plan = await this.prisma.planLimit.findUnique({
+      where: { id: planLimitId },
+      select: {
+        id: true,
+        name: true,
+        flowId: true,
+        flowIdYearly: true,
+        isActive: true,
+      },
+    });
 
-    if (!school?.id)
-      throw new InternalServerErrorException('no existe escuela');
+    if (!plan || !plan.isActive) {
+      throw new BadRequestException('Plan no válido o inactivo');
+    }
 
-    const flowCustomerId = `school_${school.id}`;
+    const flowPlanId = billingCycle === 'anual' ? plan.flowIdYearly : plan.flowId;
+
+    if (!flowPlanId) {
+      throw new BadRequestException(
+        `El plan ${plan.name} no tiene Flow ID para ${billingCycle}`,
+      );
+    }
+
+    const flowCustomerId = director.flowCustomerId;
 
     try {
       // Crear suscripción en Flow
@@ -116,13 +207,13 @@ export class SubscriptionController {
       });
 
       // Actualizar DB Local
-      await this.prisma.school.update({
-        where: { id: school.id },
+      await this.prisma.user.update({
+        where: { id: director.id },
         data: {
-          planType: planType as any,
-          subscriptionStatus: 'ACTIVE',
-          // Guardamos ID de suscripción por si queremos cancelarla luego
-          // subscriptionId: subscription.subscriptionId
+          flowPlanId: flowPlanId,
+          flowSubscriptionId: subscription.subscriptionId,
+          flowSubscriptionStatus: 'ACTIVE',
+          flowLastToken: null,
         },
       });
 

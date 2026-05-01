@@ -18,7 +18,7 @@ import {
   UpdateSchoolInput,
 } from '../../entitys/school.entity';
 
-import { PlanType, Role, SchoolMode, User } from '@prisma/client';
+import { Role, SchoolMode, User } from '@prisma/client';
 
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -47,7 +47,7 @@ export class SchoolsResolver {
    */
 
   @Query(() => SchoolDirectoryResponse, { name: 'getSchoolDirectory' })
-  @Roles(Role.DIRECTOR, Role.SUPERADMIN) // Solo directores y superadmins pueden ver todo el directorio
+  @Roles(Role.DIRECTOR, Role.SUPERADMIN, Role.SUBADMIN)
   async getSchoolDirectory(
     @Args('schoolId', { type: () => String }) schoolId: string,
   ) {
@@ -55,13 +55,14 @@ export class SchoolsResolver {
   }
 
   @Query(() => [UserEntity], { name: 'getCoachsBySchoolId' })
-  @Roles(Role.DIRECTOR, Role.SUPERADMIN) // Solo directores y superadmins pueden ver todo el directorio
+  @Roles(Role.DIRECTOR, Role.SUPERADMIN, Role.SUBADMIN)
   async getCoachsBySchoolId(
     @Args('schoolId', { type: () => String }) schoolId: string,
   ) {
     return await this.prisma.user.findMany({
       where: {
         schoolId,
+        role: Role.COACH,
       },
       include: {
         coachProfile: true,
@@ -70,7 +71,7 @@ export class SchoolsResolver {
   }
 
   @Query(() => SchoolEntity)
-  @Roles(Role.DIRECTOR, Role.SUPERADMIN) // Solo directores y superadmins pueden ver todo el directorio
+  @Roles(Role.DIRECTOR, Role.SUPERADMIN, Role.SUBADMIN)
   async getSettings(
     @Args('schoolId', { type: () => String }) schoolId: string,
   ) {
@@ -99,18 +100,50 @@ export class SchoolsResolver {
    * Director de SU escuela o SuperAdmin
    */
   @Mutation(() => SchoolEntity)
-  @Roles(Role.DIRECTOR)
+  @Roles(Role.DIRECTOR, Role.SUBADMIN)
   updateSchool(
     @Args('schoolId', { type: () => ID }) schoolId: string,
     @Args('input') input: UpdateSchoolInput,
     @CurrentUser() user: any,
   ) {
-    // Director solo puede editar su propia escuela
-    if (user.role !== Role.SUPERADMIN && user.schoolId !== schoolId) {
-      throw new Error('No autorizado para modificar esta escuela');
+    if (user.role === Role.SUPERADMIN) {
+      return this.schoolsService.update(schoolId, input);
     }
 
-    return this.schoolsService.update(schoolId, input);
+    if (user.role === Role.SUBADMIN) {
+      return this.prisma.school
+        .findFirst({
+          where: {
+            id: schoolId,
+            macroEntity: {
+              adminId: user.id,
+            },
+          },
+        })
+        .then((school) => {
+          if (!school) {
+            throw new Error('No autorizado para modificar esta escuela');
+          }
+
+          return this.schoolsService.update(schoolId, input);
+        });
+    }
+
+    return this.prisma.schoolStaff
+      .findFirst({
+        where: {
+          schoolId,
+          userId: user.id,
+          role: Role.DIRECTOR,
+        },
+      })
+      .then((staff) => {
+        if (!staff) {
+          throw new Error('No autorizado para modificar esta escuela');
+        }
+
+        return this.schoolsService.update(schoolId, input);
+      });
   }
 
   /**
@@ -134,9 +167,9 @@ export class SchoolsResolver {
   @Roles(Role.SUPERADMIN)
   updateSchoolPlan(
     @Args('schoolId', { type: () => ID }) schoolId: string,
-    @Args('plan', { type: () => PlanType }) plan: PlanType,
+    @Args('planLimitId', { type: () => String }) planLimitId: string,
   ) {
-    return this.schoolsService.updatePlan(schoolId, plan);
+    return this.schoolsService.updatePlan(schoolId, planLimitId);
   }
 
   /**
@@ -179,11 +212,28 @@ export class SchoolsResolver {
    * Director (su escuela) o SuperAdmin
    */
   @Query(() => SchoolEntity)
-  @Roles(Role.DIRECTOR)
+  @Roles(Role.DIRECTOR, Role.SUBADMIN)
   async schoolById(
     @Args('schoolId', { type: () => ID }) schoolId: string,
     @CurrentUser() user: any,
   ) {
+    if (user.role === Role.SUBADMIN) {
+      const school = await this.prisma.school.findFirst({
+        where: {
+          id: schoolId,
+          macroEntity: {
+            adminId: user.id,
+          },
+        },
+      });
+
+      if (!school) {
+        throw new Error('Acceso denegado');
+      }
+
+      return await this.schoolsService.findOne(schoolId);
+    }
+
     const staff = await this.prisma.schoolStaff.findFirst({
       where: {
         schoolId,

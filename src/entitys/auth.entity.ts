@@ -4,9 +4,10 @@ import { UserEntity } from './user.entity';
 @ObjectType()
 export class AuthResponse {
   @Field(() => String, {
+    nullable: true,
     description: 'Token JWT para acceder a los endpoints protegidos',
   })
-  accessToken: string;
+  accessToken?: string;
 
   @Field(() => UserEntity, { description: 'Datos del usuario autenticado' })
   user: UserEntity;
@@ -32,7 +33,7 @@ export class RegisterInput {
   @Field(() => String)
   fullName: string;
 
-  @Field(() => String,{ nullable: true })
+  @Field(() => String, { nullable: true })
   phone?: string;
 }
 

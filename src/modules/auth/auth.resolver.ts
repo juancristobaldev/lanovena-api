@@ -37,6 +37,13 @@ export class AuthResolver {
     return this.authService.register(input);
   }
 
+  @Query(() => Boolean, {
+    description: 'Verifica si un correo está disponible para registro',
+  })
+  async isEmailAvailable(@Args('email') email: string): Promise<boolean> {
+    return this.authService.isEmailAvailable(email);
+  }
+
   // --- PROTEGIDO ---
 
   @Query(() => UserEntity, {

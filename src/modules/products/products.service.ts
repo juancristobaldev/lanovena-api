@@ -18,6 +18,7 @@ export class ProductsService {
     // GUARDRAIL 1: Verificar configuración de la Escuela
     const school = await this.prisma.school.findUnique({
       where: { id: data.schoolId },
+      include: { planLimit: true },
     });
 
     if (!school) throw new BadRequestException('Escuela no encontrada');
@@ -29,11 +30,8 @@ export class ProductsService {
       );
     }
 
-    // Regla: Plan Semillero no tiene acceso a Tienda [cite: 115]
-    if (school.planType === 'SEMILLERO') {
-      throw new ForbiddenException(
-        'Tu plan actual (Semillero) no incluye Tienda Oficial. Actualiza a Profesional.',
-      );
+    if (!school.planLimit) {
+      throw new ForbiddenException('Tu escuela no tiene un plan asignado.');
     }
 
     return this.prisma.product.create({ data });
