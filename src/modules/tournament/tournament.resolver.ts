@@ -2,16 +2,26 @@ import { Int, Resolver, Query, Mutation, Args } from '@nestjs/graphql';
 
 import { TournamentService } from './tournament.service';
 import {
+  AddMatchEventInput,
   CreateLeagueInput,
   CreateTeamInput,
   CreateTournamentMatchInput,
   CreateTournamentPlayerInput,
+  LockMatchRosterInput,
+  PlannerAgendaItem,
+  SubmitMatchSheetInput,
+  TournamentMatchEvent,
+  UpdateTournamentSettingsInput,
+  ValidateMatchResultInput,
+  UpdateTournamentMatchInput,
   Tournament,
   TournamentMatch,
   TournamentPlayer,
+  TournamentSettings,
   TournamentStanding,
   TournamentTeam,
 } from '@/entitys/tournament.entity';
+import { MatchPeriod } from '@prisma/client';
 import { CreateUserInput } from '@/entitys/user.entity';
 
 // ===============================
@@ -29,6 +39,11 @@ export class TournamentResolver {
   @Query(() => [Tournament])
   async leagues() {
     return this.service.getLeagues();
+  }
+
+  @Query(() => [PlannerAgendaItem])
+  async plannerAgenda(@Args('plannerId') plannerId: string) {
+    return this.service.getPlannerAgenda(plannerId);
   }
 
   @Query(() => Tournament)
@@ -68,9 +83,9 @@ export class TournamentResolver {
         format: input.format,
         settings: input.settings as any,
       } as any,
-      input.organizerId,
       input.newOrganizer as any,
-      input.planner as any, // 🔥 SE PASA EL PLANILLERO AL SERVICIO AQUÍ
+      input.planner as any,
+      input.staff as any,
     );
   }
 
@@ -99,6 +114,63 @@ export class TournamentResolver {
       date: input.date,
       round: input.round,
     });
+  }
+
+  @Mutation(() => TournamentMatch)
+  async updateMatchSchedule(@Args('input') input: UpdateTournamentMatchInput) {
+    return this.service.updateMatchSchedule(input);
+  }
+
+  @Mutation(() => TournamentMatch)
+  async validateMatchResult(@Args('input') input: ValidateMatchResultInput) {
+    return this.service.validateMatchResult(
+      input.matchId,
+      input.homeScore,
+      input.awayScore,
+    );
+  }
+
+  @Mutation(() => TournamentPlayer)
+  async removeTournamentPlayer(@Args('playerId') playerId: string) {
+    return this.service.removeTournamentPlayer(playerId);
+  }
+
+  @Mutation(() => TournamentSettings)
+  async updateLeagueSettings(@Args('input') input: UpdateTournamentSettingsInput) {
+    return this.service.updateLeagueSettings(input);
+  }
+
+  @Mutation(() => TournamentMatch)
+  async lockMatchRoster(@Args('input') input: LockMatchRosterInput) {
+    return this.service.lockMatchRoster(input);
+  }
+
+  @Mutation(() => TournamentMatch)
+  async setMatchPeriod(
+    @Args('matchId') matchId: string,
+    @Args('period', { type: () => MatchPeriod }) period: MatchPeriod,
+  ) {
+    return this.service.setMatchPeriod(matchId, period);
+  }
+
+  @Mutation(() => TournamentMatchEvent)
+  async addMatchEvent(@Args('input') input: AddMatchEventInput) {
+    return this.service.addMatchEvent(input);
+  }
+
+  @Mutation(() => TournamentMatchEvent)
+  async removeMatchEvent(@Args('eventId') eventId: string) {
+    return this.service.removeMatchEvent(eventId);
+  }
+
+  @Mutation(() => TournamentMatch)
+  async submitMatchSheet(@Args('input') input: SubmitMatchSheetInput) {
+    return this.service.submitMatchSheet(input);
+  }
+
+  @Query(() => TournamentMatch, { nullable: true })
+  async tournamentMatch(@Args('matchId') matchId: string) {
+    return this.service.getMatchById(matchId);
   }
 
   @Mutation(() => TournamentMatch)

@@ -88,6 +88,19 @@ export class AuthService {
       throw new NotFoundException('Usuario objetivo no encontrado');
     }
 
+    await this.prisma.adminAuditLog.create({
+      data: {
+        adminId,
+        action: 'GOD_MODE_IMPERSONATE',
+        entity: 'User',
+        entityId: targetUserId,
+        metadata: {
+          targetRole: targetUser.role,
+          targetEmail: targetUser.email,
+        },
+      },
+    });
+
     // 3. Generar token a nombre del usuario objetivo
     return this.generateAuthResponse(targetUser, true);
   }

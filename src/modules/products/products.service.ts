@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
+import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateProductInput,
@@ -18,7 +19,6 @@ export class ProductsService {
     // GUARDRAIL 1: Verificar configuración de la Escuela
     const school = await this.prisma.school.findUnique({
       where: { id: data.schoolId },
-      include: { planLimit: true },
     });
 
     if (!school) throw new BadRequestException('Escuela no encontrada');
@@ -30,7 +30,19 @@ export class ProductsService {
       );
     }
 
-    if (!school.planLimit) {
+    const director = await this.prisma.schoolStaff.findFirst({
+      where: { schoolId: data.schoolId, role: Role.DIRECTOR },
+      select: {
+        user: {
+          select: {
+            planLimitId: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (!director?.user?.planLimitId) {
       throw new ForbiddenException('Tu escuela no tiene un plan asignado.');
     }
 

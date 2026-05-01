@@ -280,3 +280,38 @@ export class ResourceUsage {
   @Field(() => Boolean)
   canAddCategory: boolean;
 }
+
+@ObjectType({
+  description: 'Snapshot del plan real heredado desde el director',
+})
+export class DirectorPlan {
+  @Field(() => String, { nullable: true })
+  id?: string | null;
+
+  @Field(() => String)
+  name: string;
+
+  @Field(() => Int, { nullable: true })
+  amount?: number | null;
+
+  @Field(() => String, { nullable: true })
+  interval?: string | null;
+
+  @Field(() => Int, { nullable: true })
+  maxPlayers?: number | null;
+
+  @Field(() => Int, { nullable: true })
+  maxCategories?: number | null;
+
+  @Field(() => Int, { nullable: true })
+  maxCoaches?: number | null;
+
+  @Field(() => Int, { nullable: true })
+  maxSchools?: number | null;
+
+  @Field(() => Int, { nullable: true })
+  maxGuardianPerPlayer?: number | null;
+
+  @Field(() => String, { nullable: true })
+  flowSubscriptionStatus?: string | null;
+}

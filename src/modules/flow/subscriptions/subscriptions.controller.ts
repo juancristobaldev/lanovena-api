@@ -8,7 +8,7 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 
-import { User, Role } from '@prisma/client';
+import { User, Role, SubscriptionSaleStatus, SubscriptionSaleType } from '@prisma/client';
 import { FlowApiException, FlowService } from '../flow.service';
 import { PrismaService } from '../../../modules/prisma/prisma.service';
 import { HttpAuthGuard } from '../../../auth/guards/http-auth.guard';
@@ -179,6 +179,7 @@ export class SubscriptionController {
       select: {
         id: true,
         name: true,
+        amount: true,
         flowId: true,
         flowIdYearly: true,
         isActive: true,
@@ -206,15 +207,37 @@ export class SubscriptionController {
         planId: flowPlanId,
       });
 
-      // Actualizar DB Local
-      await this.prisma.user.update({
-        where: { id: director.id },
-        data: {
-          flowPlanId: flowPlanId,
-          flowSubscriptionId: subscription.subscriptionId,
-          flowSubscriptionStatus: 'ACTIVE',
-          flowLastToken: null,
-        },
+      await this.prisma.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { id: director.id },
+          data: {
+            planLimitId,
+            flowPlanId: flowPlanId,
+            flowSubscriptionId: subscription.subscriptionId,
+            flowSubscriptionStatus: 'ACTIVE',
+            flowLastToken: null,
+          },
+        });
+
+        await tx.subscriptionSale.create({
+          data: {
+            directorId: director.id,
+            planLimitId: plan.id,
+            flowSubscriptionId: subscription.subscriptionId ?? null,
+            flowToken: subscription.token ?? null,
+            flowOrder:
+              subscription.flowOrder != null
+                ? String(subscription.flowOrder)
+                : null,
+            amount: plan.amount,
+            currency: 'CLP',
+            billingCycle,
+            periodKey: new Date().toISOString().slice(0, 7),
+            saleType: SubscriptionSaleType.INITIAL,
+            status: SubscriptionSaleStatus.PENDING,
+            payload: subscription,
+          },
+        });
       });
 
       return { success: true, subscription };

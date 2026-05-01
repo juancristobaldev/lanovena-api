@@ -12,6 +12,7 @@ import {
   Benefit,
   CreateBenefitInput,
   CreateSchoolInput,
+  DirectorPlan,
   ResourceUsage,
   SchoolDirectoryResponse,
   SchoolEntity,
@@ -279,6 +280,68 @@ export class SchoolsResolver {
   })
   async resourceUsage(@Parent() school: SchoolEntity) {
     return this.schoolsService.getResourceUsage(school.id);
+  }
+
+  @ResolveField(() => DirectorPlan, {
+    description: 'Plan real de la escuela heredado desde su director',
+    nullable: true,
+  })
+  async directorPlan(@Parent() school: SchoolEntity) {
+    const director = await this.prisma.schoolStaff.findFirst({
+      where: {
+        schoolId: school.id,
+        role: Role.DIRECTOR,
+      },
+      select: {
+        user: {
+          select: {
+            flowSubscriptionStatus: true,
+            planLimit: {
+              select: {
+                id: true,
+                name: true,
+                amount: true,
+                interval: true,
+                maxPlayersPerSchool: true,
+                maxCategories: true,
+                maxCoaches: true,
+                maxSchools: true,
+                maxGuardianPerPlayer: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (!director?.user?.planLimit) {
+      return {
+        id: null,
+        name: 'Sin plan',
+        amount: null,
+        interval: null,
+        maxPlayers: null,
+        maxCategories: null,
+        maxCoaches: null,
+        maxSchools: null,
+        maxGuardianPerPlayer: null,
+        flowSubscriptionStatus: director?.user?.flowSubscriptionStatus ?? null,
+      };
+    }
+
+    return {
+      id: director.user.planLimit.id,
+      name: director.user.planLimit.name,
+      amount: director.user.planLimit.amount,
+      interval: director.user.planLimit.interval,
+      maxPlayers: director.user.planLimit.maxPlayersPerSchool,
+      maxCategories: director.user.planLimit.maxCategories,
+      maxCoaches: director.user.planLimit.maxCoaches,
+      maxSchools: director.user.planLimit.maxSchools,
+      maxGuardianPerPlayer: director.user.planLimit.maxGuardianPerPlayer,
+      flowSubscriptionStatus: director.user.flowSubscriptionStatus,
+    };
   }
 
   // --- MUTATIONS PARA BENEFICIOS ---

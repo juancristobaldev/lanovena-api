@@ -213,7 +213,6 @@ export class SubadminService {
         slug: input.slug,
         mode: input.mode,
         subscriptionStatus: input.subscriptionStatus,
-        planLimitId: input.planLimitId,
         monthlyFee: input.monthlyFee,
         latitude: input.latitude,
         longitude: input.longitude,
@@ -224,6 +223,12 @@ export class SubadminService {
     if (input.directorIds?.length) {
       for (const directorId of input.directorIds) {
         await this.assignDirectorToSchool(subadminId, school.id, directorId);
+        if (input.planLimitId) {
+          await this.prisma.user.update({
+            where: { id: directorId },
+            data: { planLimitId: input.planLimitId },
+          });
+        }
       }
     }
 

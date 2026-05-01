@@ -4,7 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { Prisma, School, SchoolMode, Role } from '@prisma/client';
+import { Prisma, School, SchoolMode, Role, PlanLimit } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateBenefitInput,
@@ -15,6 +15,24 @@ import {
 @Injectable()
 export class SchoolsService {
   constructor(private prisma: PrismaService) {}
+
+  private async getDirectorPlanLimitBySchoolId(
+    schoolId: string,
+  ): Promise<PlanLimit | null> {
+    const staffDirector = await this.prisma.schoolStaff.findFirst({
+      where: { schoolId, role: Role.DIRECTOR },
+      select: {
+        user: {
+          select: {
+            planLimit: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return staffDirector?.user?.planLimit ?? null;
+  }
 
   async getSchoolDirectory(schoolId: string) {
     // 1. Validar que la escuela existe
@@ -241,10 +259,23 @@ export class SchoolsService {
 
   // Método para actualizar el Plan (Upgrade/Downgrade) [cite: 104, 116, 128]
   async updatePlan(id: string, newPlanLimitId: string): Promise<School> {
-    return this.prisma.school.update({
-      where: { id },
+    await this.findOne(id);
+
+    const directors = await this.prisma.schoolStaff.findMany({
+      where: { schoolId: id, role: Role.DIRECTOR },
+      select: { userId: true },
+    });
+
+    if (!directors.length) {
+      throw new BadRequestException('La escuela no tiene directores asignados');
+    }
+
+    await this.prisma.user.updateMany({
+      where: { id: { in: directors.map((d) => d.userId) }, role: Role.DIRECTOR },
       data: { planLimitId: newPlanLimitId },
     });
+
+    return this.prisma.school.findUniqueOrThrow({ where: { id } });
   }
 
   // ===========================================================================
@@ -287,7 +318,6 @@ export class SchoolsService {
     const school = await this.prisma.school.findUnique({
       where: { id: schoolId },
       include: {
-        planLimit: true,
         _count: {
           select: { players: true, categories: true, users: true }, // Asumimos users filtrados por rol COACH
         },
@@ -296,13 +326,15 @@ export class SchoolsService {
 
     if (!school) throw new NotFoundException('Escuela no encontrada');
 
-    if (!school.planLimit) {
+    const planLimit = await this.getDirectorPlanLimitBySchoolId(schoolId);
+
+    if (!planLimit) {
       throw new BadRequestException('La escuela no tiene plan asignado');
     }
 
     const currentPlan = {
-      MAX_PLAYERS: school.planLimit.maxPlayersPerSchool,
-      MAX_CATS: school.planLimit.maxCategories,
+      MAX_PLAYERS: planLimit.maxPlayersPerSchool,
+      MAX_CATS: planLimit.maxCategories,
       MAX_COACHES: 9999,
     };
 
@@ -311,7 +343,7 @@ export class SchoolsService {
       school._count.players >= currentPlan.MAX_PLAYERS
     ) {
       throw new BadRequestException(
-        `Has alcanzado el límite de ${currentPlan.MAX_PLAYERS} jugadores de tu plan ${school.planLimit.name}.`,
+        `Has alcanzado el límite de ${currentPlan.MAX_PLAYERS} jugadores de tu plan ${planLimit.name}.`,
       );
     }
 
@@ -335,19 +367,19 @@ export class SchoolsService {
     const school = await this.prisma.school.findUnique({
       where: { id: schoolId },
       include: {
-        planLimit: true,
         _count: { select: { players: true, categories: true } },
       },
     });
 
     if (!school) throw new NotFoundException('Escuela no encontrada');
-    if (!school.planLimit) {
+    const planLimit = await this.getDirectorPlanLimitBySchoolId(schoolId);
+    if (!planLimit) {
       throw new BadRequestException('La escuela no tiene plan asignado');
     }
 
     const limits = {
-      MAX_PLAYERS: school.planLimit.maxPlayersPerSchool,
-      MAX_CATS: school.planLimit.maxCategories,
+      MAX_PLAYERS: planLimit.maxPlayersPerSchool,
+      MAX_CATS: planLimit.maxCategories,
     };
 
     return {

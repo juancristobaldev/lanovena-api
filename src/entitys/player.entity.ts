@@ -99,6 +99,9 @@ export class PlayerEntity {
   birthDate: Date;
 
   @Field(() => String, { nullable: true })
+  rut?: string;
+
+  @Field(() => String, { nullable: true })
   photoUrl?: string;
 
   @Field(() => String, { nullable: true })
@@ -174,6 +177,11 @@ export class CreatePlayerInput {
   @Field(() => Date)
   @IsDate()
   birthDate: Date;
+
+  @Field(() => String, { nullable: true })
+  @IsString()
+  @IsOptional()
+  rut?: string;
 
   @Field(() => String, { nullable: true })
   @IsString()

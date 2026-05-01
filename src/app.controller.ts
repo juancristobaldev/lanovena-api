@@ -155,7 +155,11 @@ export class AppController {
       },
     });
  */
-
+    const planners = await this.prisma.user.findMany({
+      where: {
+        role: Role.PLANNER,
+      },
+    });
     const directors = await this.prisma.user.findMany({
       where: {
         role: Role.DIRECTOR,
@@ -165,6 +169,7 @@ export class AppController {
     return {
       //coachs, players, apoderados, admins,
       directors,
+      planners,
     };
   }
   @Get()

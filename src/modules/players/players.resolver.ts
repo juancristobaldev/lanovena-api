@@ -196,8 +196,25 @@ export class PlayersResolver {
   ) {
     let targetSchoolId = user.schoolId;
 
+    console.log({ user });
+
     if (user.role === Role.SUPERADMIN) {
       targetSchoolId = schoolId || user.schoolId;
+    }
+
+    if (user.role === Role.DIRECTOR && schoolId) {
+      targetSchoolId = schoolId;
+
+      const schoolStaff = await this.prisma.schoolStaff.findFirst({
+        where: {
+          schoolId,
+          userId: user?.id,
+        },
+      });
+
+      if (!schoolStaff) {
+        throw new ForbiddenException('No tienes acceso a esta escuela');
+      }
     }
 
     if (user.role === Role.SUBADMIN) {
@@ -216,6 +233,8 @@ export class PlayersResolver {
         throw new ForbiddenException('No tienes acceso a esta escuela');
       }
     }
+
+    console.log({ targetSchoolId });
 
     if (!targetSchoolId) {
       throw new Error('School ID is required');

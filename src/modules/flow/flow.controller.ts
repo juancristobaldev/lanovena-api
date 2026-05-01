@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { FlowService } from './flow.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { Role } from '@prisma/client';
+import { Role, SubscriptionSaleStatus, SubscriptionSaleType } from '@prisma/client';
 import { Response } from 'express';
 
 @Controller('flow/hooks')
@@ -206,6 +206,12 @@ export class FlowController {
             payerEmail ? { email: payerEmail } : undefined,
           ].filter(Boolean) as any,
         },
+        select: {
+          id: true,
+          email: true,
+          flowNextBillingDate: true,
+          planLimitId: true,
+        },
       });
 
       if (!director) {
@@ -224,6 +230,66 @@ export class FlowController {
           flowLastPaymentStatus: flowStatus,
           flowLastToken: token,
           flowNextBillingDate: isPaid ? nextBillingDate : director.flowNextBillingDate,
+        },
+      });
+
+      const periodKey = new Date().toISOString().slice(0, 7);
+      const resolvedAmount = Number(paymentStatus.amount ?? 0);
+      const paidAt = isPaid ? new Date() : null;
+
+      if (paymentStatus.subscriptionId) {
+        await this.prisma.subscriptionSale.upsert({
+          where: {
+            flowSubscriptionId_saleType_periodKey: {
+              flowSubscriptionId: paymentStatus.subscriptionId,
+              saleType: SubscriptionSaleType.RENEWAL,
+              periodKey,
+            },
+          },
+          update: {
+            status: isPaid
+              ? SubscriptionSaleStatus.PAID
+              : SubscriptionSaleStatus.FAILED,
+            paidAt,
+            flowToken: token,
+            amount: resolvedAmount > 0 ? resolvedAmount : undefined,
+            payload: paymentStatus,
+          },
+          create: {
+            directorId: director.id,
+            planLimitId: director.planLimitId ?? null,
+            flowSubscriptionId: paymentStatus.subscriptionId,
+            flowToken: token,
+            flowOrder:
+              paymentStatus.flowOrder != null
+                ? String(paymentStatus.flowOrder)
+                : null,
+            amount: resolvedAmount,
+            currency: 'CLP',
+            billingCycle: 'mensual',
+            periodKey,
+            saleType: SubscriptionSaleType.RENEWAL,
+            status: isPaid
+              ? SubscriptionSaleStatus.PAID
+              : SubscriptionSaleStatus.FAILED,
+            paidAt,
+            payload: paymentStatus,
+          },
+        });
+      }
+
+      await this.prisma.subscriptionSale.updateMany({
+        where: {
+          directorId: director.id,
+          saleType: SubscriptionSaleType.INITIAL,
+          status: SubscriptionSaleStatus.PENDING,
+        },
+        data: {
+          status: isPaid
+            ? SubscriptionSaleStatus.PAID
+            : SubscriptionSaleStatus.FAILED,
+          paidAt,
+          flowToken: token,
         },
       });
 

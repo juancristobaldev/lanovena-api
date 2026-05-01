@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -13,6 +14,12 @@ import { Role } from '@prisma/client';
 @Injectable()
 export class PlayersService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private normalizeRut(rut?: string | null) {
+    if (!rut) return null;
+    const normalized = rut.replace(/\s+/g, '').toUpperCase();
+    return normalized.length > 0 ? normalized : null;
+  }
 
   /* ===================== MUTATIONS ===================== */
 
@@ -28,9 +35,25 @@ export class PlayersService {
       throw new ForbiddenException('No te pertenece esta escuela');
     }
 
+    const normalizedRut = this.normalizeRut(input.rut);
+    if (normalizedRut) {
+      const existing = await this.prisma.player.findFirst({
+        where: {
+          schoolId: input.schoolId,
+          rut: normalizedRut,
+        },
+        select: { id: true },
+      });
+
+      if (existing) {
+        throw new ConflictException('El RUT ya existe en esta escuela');
+      }
+    }
+
     return this.prisma.player.create({
       data: {
         ...input,
+        rut: normalizedRut,
       },
     });
   }
@@ -53,9 +76,28 @@ export class PlayersService {
       throw new ForbiddenException('Acceso denegado');
     }
 
+    const normalizedRut = this.normalizeRut(input.rut as string | undefined);
+    if (normalizedRut) {
+      const existing = await this.prisma.player.findFirst({
+        where: {
+          schoolId: player.schoolId,
+          rut: normalizedRut,
+          id: { not: playerId },
+        },
+        select: { id: true },
+      });
+
+      if (existing) {
+        throw new ConflictException('El RUT ya existe en esta escuela');
+      }
+    }
+
     return this.prisma.player.update({
       where: { id: playerId },
-      data: input,
+      data: {
+        ...input,
+        rut: input.rut === undefined ? undefined : normalizedRut,
+      },
     });
   }
 

@@ -22,6 +22,18 @@ export class AdminSchoolObject {
   @Field(() => String, { nullable: true })
   planLimitId?: string | null;
 
+  @Field(() => String, { nullable: true })
+  directorPlanName?: string | null;
+
+  @Field(() => String, { nullable: true })
+  directorId?: string | null;
+
+  @Field(() => String, { nullable: true })
+  directorSubscriptionStatus?: string | null;
+
+  @Field(() => String)
+  financialStatus: string;
+
   @Field(() => Boolean)
   isActive: boolean;
 
@@ -240,6 +252,18 @@ export class RevenueAnalytics {
 }
 
 @ObjectType()
+export class AdminDashboardHistoryPoint {
+  @Field()
+  label: string;
+
+  @Field(() => Float)
+  revenue: number;
+
+  @Field(() => Int)
+  activeSchools: number;
+}
+
+@ObjectType()
 export class AdminConversionKpi {
   @Field(() => Int) totalSchools: number;
   @Field(() => Int) activeSchools: number;
@@ -340,4 +364,109 @@ export class AdminSafeDeleteResultObject {
 
   @Field(() => String)
   message: string;
+}
+
+@ObjectType()
+export class AdminCrmDirectorObject {
+  @Field(() => ID)
+  id: string;
+
+  @Field()
+  fullName: string;
+
+  @Field()
+  email: string;
+
+  @Field(() => String, { nullable: true })
+  planName?: string | null;
+
+  @Field(() => Int, { nullable: true })
+  planAmount?: number | null;
+
+  @Field(() => Int)
+  schoolsCount: number;
+
+  @Field(() => String, { nullable: true })
+  flowSubscriptionStatus?: string | null;
+}
+
+@ObjectType()
+export class AdminSalesKpisObject {
+  @Field(() => Float)
+  mrr: number;
+
+  @Field(() => Float)
+  siiBilled: number;
+
+  @Field(() => Int)
+  totalSales: number;
+
+  @Field(() => Int)
+  initialSales: number;
+
+  @Field(() => Int)
+  renewals: number;
+
+  @Field(() => Int)
+  failedSales: number;
+}
+
+@ObjectType()
+export class AdminSalesDirectorObject {
+  @Field(() => ID)
+  id: string;
+
+  @Field()
+  fullName: string;
+
+  @Field()
+  email: string;
+}
+
+@ObjectType()
+export class AdminSalesPlanObject {
+  @Field(() => ID)
+  id: string;
+
+  @Field()
+  name: string;
+}
+
+@ObjectType()
+export class AdminSubscriptionSaleObject {
+  @Field(() => ID)
+  id: string;
+
+  @Field(() => AdminSalesDirectorObject)
+  director: AdminSalesDirectorObject;
+
+  @Field(() => AdminSalesPlanObject, { nullable: true })
+  planLimit?: AdminSalesPlanObject | null;
+
+  @Field(() => String, { nullable: true })
+  flowSubscriptionId?: string | null;
+
+  @Field(() => String, { nullable: true })
+  flowToken?: string | null;
+
+  @Field(() => Int)
+  amount: number;
+
+  @Field(() => String)
+  currency: string;
+
+  @Field(() => String)
+  billingCycle: string;
+
+  @Field(() => String)
+  saleType: string;
+
+  @Field(() => String)
+  status: string;
+
+  @Field(() => Date, { nullable: true })
+  paidAt?: Date | null;
+
+  @Field(() => Date)
+  createdAt: Date;
 }

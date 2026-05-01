@@ -1,4 +1,4 @@
-import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args, Int } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 
 import { AdminService } from './admin.service';
@@ -12,6 +12,7 @@ import { UserEntity } from '@/entitys/user.entity';
 import {
   AdminDashboardStats,
   RevenueAnalytics,
+  AdminDashboardHistoryPoint,
   AdminStatisticsKpis,
   AdminSchoolObject,
   AdminUserObject,
@@ -30,6 +31,9 @@ import {
   AdminAuditLogObject,
   AdminDirectorObject,
   AdminSafeDeleteResultObject,
+  AdminCrmDirectorObject,
+  AdminSalesKpisObject,
+  AdminSubscriptionSaleObject,
 } from './dto/admin.object';
 import {
   CreatePlanLimitInput,
@@ -75,6 +79,28 @@ export class AdminResolver {
   @Query(() => RevenueAnalytics, { name: 'adminRevenueAnalytics' })
   async revenueAnalytics(): Promise<RevenueAnalytics> {
     return this.adminService.getRevenueAnalytics();
+  }
+
+  @Query(() => [AdminDashboardHistoryPoint], { name: 'adminDashboardHistory' })
+  async dashboardHistory(
+    @Args('months', { type: () => Int, nullable: true }) months?: number,
+  ): Promise<AdminDashboardHistoryPoint[]> {
+    return this.adminService.getDashboardHistory(months);
+  }
+
+  @Query(() => [AdminCrmDirectorObject], { name: 'adminCrmDirectors' })
+  async adminCrmDirectors() {
+    return this.adminService.getCrmDirectors();
+  }
+
+  @Query(() => AdminSalesKpisObject, { name: 'adminSalesKpis' })
+  async adminSalesKpis() {
+    return this.adminService.getSalesKpis();
+  }
+
+  @Query(() => [AdminSubscriptionSaleObject], { name: 'adminSubscriptionSales' })
+  async adminSubscriptionSales() {
+    return this.adminService.getSubscriptionSales();
   }
 
   @Query(() => AdminStatisticsKpis, { name: 'adminStatisticsKpis' })

@@ -39,6 +39,9 @@ export class UserEntity {
   fullName: string;
 
   @Field(() => String, { nullable: true })
+  photoUrl?: string;
+
+  @Field(() => String, { nullable: true })
   phone?: string;
 
   @Field(() => Role)
@@ -83,6 +86,11 @@ export class CreateUserInput {
   @Field(() => String)
   @IsString()
   fullName: string;
+
+  @Field(() => String, { nullable: true })
+  @IsString()
+  @IsOptional()
+  photoUrl?: string;
 
   @Field(() => Role, { defaultValue: Role.GUARDIAN })
   @IsEnum(Role)

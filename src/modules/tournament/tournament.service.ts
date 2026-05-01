@@ -1,7 +1,16 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Role, MatchStatus, TournamentStatus, Prisma } from '@prisma/client';
+import {
+  Role,
+  MatchStatus,
+  TournamentStatus,
+  Prisma,
+  MatchPeriod,
+  MatchEventType,
+  MatchTeamSide,
+} from '@prisma/client';
 import { CreateUserInput } from '@/entitys/user.entity';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class TournamentService {
@@ -18,8 +27,34 @@ export class TournamentService {
         planner: true, // 🔥 Planner incluido desde el torneo
         teams: true,
         settings: true,
+        matches: {
+          include: {
+            homeTeam: true,
+            awayTeam: true,
+            stats: {
+              include: {
+                player: true,
+              },
+            },
+            events: {
+              include: {
+                player: true,
+              },
+            },
+            rosterValidations: {
+              include: {
+                player: true,
+              },
+            },
+          },
+        },
       },
-    });
+    }).then((leagues) =>
+      leagues.map((league) => ({
+        ...league,
+        staff: league.planner,
+      })),
+    );
   }
 
   async getLeagueById(id: string) {
@@ -38,7 +73,21 @@ export class TournamentService {
           include: {
             homeTeam: true,
             awayTeam: true,
-            // 🔥 planner eliminado de los partidos
+            stats: {
+              include: {
+                player: true,
+              },
+            },
+            events: {
+              include: {
+                player: true,
+              },
+            },
+            rosterValidations: {
+              include: {
+                player: true,
+              },
+            },
           },
         },
         standings: {
@@ -51,56 +100,47 @@ export class TournamentService {
 
     if (!league) throw new NotFoundException('Liga no encontrada');
 
-    return league;
+    return {
+      ...league,
+      staff: league.planner,
+    };
   }
 
   async createLeague(
     input: Prisma.TournamentCreateInput,
-    organizerId?: string,
-    newOrganizer?: Prisma.UserCreateInput,
-    planner?: CreateUserInput, // 🔥 RECIBIMOS AL PLANILLERO
+    newOrganizer: Prisma.UserCreateInput,
+    planner?: CreateUserInput,
+    staff?: CreateUserInput,
   ) {
     const { name, format, settings } = input;
+    const staffInput = staff ?? planner;
 
-    if (!organizerId && !newOrganizer) {
-      throw new Error(
-        'Debes seleccionar un organizador existente o crear uno nuevo.',
-      );
+    if (!staffInput) {
+      throw new Error('Es obligatorio crear un staff para el torneo.');
     }
 
-    if (!planner) {
-      throw new Error('Es obligatorio crear un planillero para el torneo.');
-    }
-
-    let organizerRelation = {};
-
-    if (newOrganizer) {
-      organizerRelation = {
-        create: {
-          email: newOrganizer.email,
-          password: newOrganizer.password,
-          fullName: newOrganizer.fullName,
-          phone: newOrganizer.phone,
-          role: Role.DIRECTOR,
-        },
-      };
-    } else {
-      organizerRelation = {
-        connect: { id: organizerId },
-      };
-    }
+    const organizerPasswordHash = await bcrypt.hash(newOrganizer.password, 10);
+    const plannerPasswordHash = await bcrypt.hash(staffInput.password, 10);
 
     return this.prisma.tournament.create({
       data: {
         name,
         format,
-        organizer: organizerRelation,
+        organizer: {
+          create: {
+            email: newOrganizer.email.trim().toLowerCase(),
+            password: organizerPasswordHash,
+            fullName: newOrganizer.fullName,
+            phone: newOrganizer.phone,
+            role: Role.LEAGUE_OWNER,
+          },
+        },
         planner: {
           create: {
-            email: planner.email,
-            password: planner.password,
-            fullName: planner.fullName,
-            phone: planner.phone,
+            email: staffInput.email.trim().toLowerCase(),
+            password: plannerPasswordHash,
+            fullName: staffInput.fullName,
+            phone: staffInput.phone,
             role: Role.PLANNER,
           },
         }, // 🔥 SE CREA EL PLANILLERO JUNTO CON EL TORNEO
@@ -115,7 +155,10 @@ export class TournamentService {
         planner: true,
         settings: true,
       },
-    });
+    }).then((league) => ({
+      ...league,
+      staff: league.planner,
+    }));
   }
 
   async cancelLeague(leagueId: string) {
@@ -185,9 +228,58 @@ export class TournamentService {
       include: {
         homeTeam: true,
         awayTeam: true,
+        stats: {
+          include: {
+            player: true,
+          },
+        },
+        events: {
+          include: {
+            player: true,
+          },
+        },
+        rosterValidations: {
+          include: {
+            player: true,
+          },
+        },
         // 🔥 planner eliminado
       },
     });
+  }
+
+  async getPlannerAgenda(plannerId: string) {
+    const leagues = await this.prisma.tournament.findMany({
+      where: { plannerId },
+      include: {
+        matches: {
+          where: {
+            status: {
+              in: [
+                MatchStatus.SCHEDULED,
+                MatchStatus.ROSTER_LOCKED,
+                MatchStatus.IN_PROGRESS,
+                MatchStatus.FINISHED,
+              ],
+            },
+          },
+          include: {
+            homeTeam: true,
+            awayTeam: true,
+          },
+          orderBy: { date: 'asc' },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return leagues.flatMap((league) =>
+      league.matches.map((match) => ({
+        leagueId: league.id,
+        leagueName: league.name,
+        match,
+      })),
+    );
   }
 
   async getMatches(tournamentId: string) {
@@ -212,9 +304,245 @@ export class TournamentService {
       },
     });
 
-    await this.updateStandings(match);
+    await this.recomputeStandings(match.tournamentId);
 
     return match;
+  }
+
+  async validateMatchResult(
+    matchId: string,
+    homeScore: number,
+    awayScore: number,
+  ) {
+    const match = await this.prisma.tournamentMatch.update({
+      where: { id: matchId },
+      data: {
+        homeScore,
+        awayScore,
+        status: MatchStatus.PLAYED,
+      },
+    });
+
+    await this.recomputeStandings(match.tournamentId);
+
+    return match;
+  }
+
+  async lockMatchRoster(data: {
+    matchId: string;
+    verifiedHomePlayerIds: string[];
+    verifiedAwayPlayerIds: string[];
+    allowInsufficientPlayers?: boolean;
+  }) {
+    const match = await this.prisma.tournamentMatch.findUnique({
+      where: { id: data.matchId },
+      include: {
+        homeTeam: { include: { players: true } },
+        awayTeam: { include: { players: true } },
+      },
+    });
+
+    if (!match) throw new NotFoundException('Partido no encontrado');
+    if (match.status !== MatchStatus.SCHEDULED) {
+      throw new BadRequestException('Solo se puede bloquear nómina en estado programado');
+    }
+
+    if (!data.allowInsufficientPlayers) {
+      if (data.verifiedHomePlayerIds.length < 7 || data.verifiedAwayPlayerIds.length < 7) {
+        throw new BadRequestException('Se requieren al menos 7 jugadores por equipo');
+      }
+    }
+
+    const homeSet = new Set(data.verifiedHomePlayerIds);
+    const awaySet = new Set(data.verifiedAwayPlayerIds);
+
+    await this.prisma.$transaction([
+      this.prisma.tournamentMatchRoster.deleteMany({ where: { matchId: data.matchId } }),
+      this.prisma.tournamentMatchRoster.createMany({
+        data: [
+          ...match.homeTeam.players.map((player) => ({
+            matchId: data.matchId,
+            playerId: player.id,
+            teamSide: MatchTeamSide.HOME,
+            verified: homeSet.has(player.id),
+            suspendedSnapshot: false,
+          })),
+          ...match.awayTeam.players.map((player) => ({
+            matchId: data.matchId,
+            playerId: player.id,
+            teamSide: MatchTeamSide.AWAY,
+            verified: awaySet.has(player.id),
+            suspendedSnapshot: false,
+          })),
+        ],
+      }),
+      this.prisma.tournamentMatch.update({
+        where: { id: data.matchId },
+        data: {
+          status: MatchStatus.ROSTER_LOCKED,
+          currentPeriod: MatchPeriod.PREVIA,
+        },
+      }),
+    ]);
+
+    return this.getMatchById(data.matchId);
+  }
+
+  async addMatchEvent(data: {
+    matchId: string;
+    teamSide: MatchTeamSide;
+    type: MatchEventType;
+    minute: number;
+    playerId?: string;
+    description?: string;
+  }) {
+    const match = await this.prisma.tournamentMatch.findUnique({ where: { id: data.matchId } });
+    if (!match) throw new NotFoundException('Partido no encontrado');
+    if (
+      match.status !== MatchStatus.IN_PROGRESS &&
+      match.status !== MatchStatus.FINISHED
+    ) {
+      throw new BadRequestException('Solo puedes registrar eventos con partido en curso o finalizado');
+    }
+
+    const created = await this.prisma.tournamentMatchEvent.create({
+      data,
+      include: { player: true },
+    });
+
+    return created;
+  }
+
+  async removeMatchEvent(eventId: string) {
+    return this.prisma.tournamentMatchEvent.delete({ where: { id: eventId }, include: { player: true } });
+  }
+
+  async setMatchPeriod(matchId: string, period: MatchPeriod) {
+    const statusByPeriod: Record<MatchPeriod, MatchStatus> = {
+      PREVIA: MatchStatus.ROSTER_LOCKED,
+      FIRST_HALF: MatchStatus.IN_PROGRESS,
+      BREAK: MatchStatus.IN_PROGRESS,
+      SECOND_HALF: MatchStatus.IN_PROGRESS,
+      FINAL: MatchStatus.FINISHED,
+    };
+
+    const status = statusByPeriod[period];
+
+    const updated = await this.prisma.tournamentMatch.update({
+      where: { id: matchId },
+      data: {
+        currentPeriod: period,
+        status,
+        startedAt: period === MatchPeriod.FIRST_HALF ? new Date() : undefined,
+        finishedAt: period === MatchPeriod.FINAL ? new Date() : undefined,
+      },
+      include: {
+        homeTeam: true,
+        awayTeam: true,
+        events: { include: { player: true } },
+        rosterValidations: { include: { player: true } },
+      },
+    });
+
+    return updated;
+  }
+
+  async submitMatchSheet(data: { matchId: string; notes: string }) {
+    if (!data.notes?.trim()) {
+      throw new BadRequestException('Debes agregar observaciones antes de enviar la planilla');
+    }
+
+    const match = await this.prisma.tournamentMatch.findUnique({ where: { id: data.matchId } });
+    if (!match) throw new NotFoundException('Partido no encontrado');
+    if (match.status !== MatchStatus.FINISHED) {
+      throw new BadRequestException('Solo puedes enviar una planilla con partido finalizado');
+    }
+
+    const events = await this.prisma.tournamentMatchEvent.findMany({ where: { matchId: data.matchId } });
+    const homeGoals = events.filter((e) => e.type === MatchEventType.GOAL && e.teamSide === MatchTeamSide.HOME).length;
+    const awayGoals = events.filter((e) => e.type === MatchEventType.GOAL && e.teamSide === MatchTeamSide.AWAY).length;
+
+    return this.prisma.tournamentMatch.update({
+      where: { id: data.matchId },
+      data: {
+        notes: data.notes.trim(),
+        submittedAt: new Date(),
+        status: MatchStatus.SUBMITTED,
+        homeScore: homeGoals,
+        awayScore: awayGoals,
+      },
+      include: {
+        homeTeam: true,
+        awayTeam: true,
+        events: { include: { player: true } },
+        rosterValidations: { include: { player: true } },
+      },
+    });
+  }
+
+  async getMatchById(matchId: string) {
+    return this.prisma.tournamentMatch.findUnique({
+      where: { id: matchId },
+      include: {
+        homeTeam: { include: { players: true } },
+        awayTeam: { include: { players: true } },
+        events: { include: { player: true }, orderBy: { minute: 'asc' } },
+        rosterValidations: { include: { player: true } },
+      },
+    });
+  }
+
+  async updateMatchSchedule(data: {
+    matchId: string;
+    date?: Date;
+    round?: number;
+    homeTeamId?: string;
+    awayTeamId?: string;
+    status?: MatchStatus;
+  }) {
+    const { matchId, ...rest } = data;
+
+    return this.prisma.tournamentMatch.update({
+      where: { id: matchId },
+      data: rest,
+      include: {
+        homeTeam: true,
+        awayTeam: true,
+        stats: {
+          include: {
+            player: true,
+          },
+        },
+      },
+    });
+  }
+
+  async updateLeagueSettings(data: {
+    tournamentId: string;
+    pointsWin?: number;
+    pointsDraw?: number;
+    pointsLoss?: number;
+  }) {
+    const { tournamentId, ...rest } = data;
+
+    const settings = await this.prisma.tournamentSettings.upsert({
+      where: { tournamentId },
+      create: {
+        tournamentId,
+        ...rest,
+      },
+      update: rest,
+    });
+
+    await this.recomputeStandings(tournamentId);
+
+    return settings;
+  }
+
+  async removeTournamentPlayer(playerId: string) {
+    return this.prisma.tournamentPlayer.delete({
+      where: { id: playerId },
+    });
   }
 
   // ===============================
@@ -318,6 +646,51 @@ export class TournamentService {
         { goalsAgainst: 'asc' },
       ],
     });
+  }
+
+  private async recomputeStandings(tournamentId: string) {
+    const teams = await this.prisma.tournamentTeam.findMany({
+      where: { tournamentId },
+      select: { id: true },
+    });
+
+    await Promise.all(
+      teams.map((team) =>
+        this.prisma.tournamentStanding.upsert({
+          where: {
+            teamId_tournamentId: {
+              teamId: team.id,
+              tournamentId,
+            },
+          },
+          create: {
+            teamId: team.id,
+            tournamentId,
+          },
+          update: {
+            played: 0,
+            wins: 0,
+            draws: 0,
+            losses: 0,
+            goalsFor: 0,
+            goalsAgainst: 0,
+            points: 0,
+          },
+        }),
+      ),
+    );
+
+    const playedMatches = await this.prisma.tournamentMatch.findMany({
+      where: {
+        tournamentId,
+        status: MatchStatus.PLAYED,
+      },
+      orderBy: { round: 'asc' },
+    });
+
+    for (const match of playedMatches) {
+      await this.updateStandings(match);
+    }
   }
 
   // ===============================

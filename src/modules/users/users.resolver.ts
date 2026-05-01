@@ -6,6 +6,7 @@ import {
   ConflictException,
   UnauthorizedException,
   InternalServerErrorException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -20,6 +21,7 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import { UsersService } from './users.service';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { CoachEntity } from '../../entitys/coach.entity';
+import * as bcrypt from 'bcrypt';
 
 @Resolver(() => UserEntity)
 @UseGuards(GqlAuthGuard, RolesGuard)
@@ -63,6 +65,47 @@ export class UsersResolver {
   ) {
     if (!input.schoolId) return null;
 
+    const directorStaff = await this.prisma.schoolStaff.findFirst({
+      where: {
+        schoolId: input.schoolId,
+        role: Role.DIRECTOR,
+      },
+      select: {
+        user: {
+          select: {
+            planLimit: {
+              select: {
+                name: true,
+                maxCoaches: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const maxCoaches = directorStaff?.user?.planLimit?.maxCoaches;
+    if (!maxCoaches || maxCoaches <= 0) {
+      throw new BadRequestException(
+        'La escuela no tiene un límite de coaches configurado en su plan',
+      );
+    }
+
+    const currentCoaches = await this.prisma.user.count({
+      where: {
+        schoolId: input.schoolId,
+        role: Role.COACH,
+        isActive: true,
+      },
+    });
+
+    if (currentCoaches >= maxCoaches) {
+      throw new BadRequestException(
+        `Has alcanzado el límite de ${maxCoaches} coaches de tu plan ${directorStaff?.user?.planLimit?.name || ''}.`,
+      );
+    }
+
     const data = {
       ...input,
       school: {
@@ -76,7 +119,8 @@ export class UsersResolver {
       data: {
         email: data.email,
         fullName: data.fullName,
-        password: data.password,
+        photoUrl: data.photoUrl,
+        password: await bcrypt.hash(data.password, 10),
         role: 'COACH',
         phone: data.phone,
         schoolId: data.schoolId,
@@ -205,9 +249,13 @@ export class UsersResolver {
         : user.schoolId;
 
     // Forzamos el rol GUARDIAN y la escuela
+    const hashedPassword = await bcrypt.hash(input.password, 10);
+
     return this.prisma.user.create({
       data: {
         ...input,
+        password: hashedPassword,
+        photoUrl: input.photoUrl,
         role: 'GUARDIAN',
         schoolId: targetSchoolId,
       },

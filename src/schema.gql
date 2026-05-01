@@ -2,6 +2,15 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+input AddMatchEventInput {
+  description: String
+  matchId: String!
+  minute: Int!
+  playerId: String
+  teamSide: MatchTeamSide!
+  type: MatchEventType!
+}
+
 type AdminAuditLogObject {
   action: String!
   adminId: String!
@@ -14,6 +23,22 @@ type AdminConversionKpi {
   activeSchools: Int!
   conversionRate: Float!
   totalSchools: Int!
+}
+
+type AdminCrmDirectorObject {
+  email: String!
+  flowSubscriptionStatus: String
+  fullName: String!
+  id: ID!
+  planAmount: Int
+  planName: String
+  schoolsCount: Int!
+}
+
+type AdminDashboardHistoryPoint {
+  activeSchools: Int!
+  label: String!
+  revenue: Float!
 }
 
 type AdminDashboardStats {
@@ -42,8 +67,32 @@ type AdminSafeDeleteResultObject {
   success: Boolean!
 }
 
+type AdminSalesDirectorObject {
+  email: String!
+  fullName: String!
+  id: ID!
+}
+
+type AdminSalesKpisObject {
+  failedSales: Int!
+  initialSales: Int!
+  mrr: Float!
+  renewals: Int!
+  siiBilled: Float!
+  totalSales: Int!
+}
+
+type AdminSalesPlanObject {
+  id: ID!
+  name: String!
+}
+
 type AdminSchoolObject {
   _count: CountSchool!
+  directorId: String
+  directorPlanName: String
+  directorSubscriptionStatus: String
+  financialStatus: String!
   id: ID!
   isActive: Boolean!
   latitude: Float
@@ -59,6 +108,21 @@ type AdminStatisticsKpis {
   conversion: AdminConversionKpi!
   trend: [AdminTrendPoint!]!
   weeklyActivity: [AdminWeeklyActivityPoint!]!
+}
+
+type AdminSubscriptionSaleObject {
+  amount: Int!
+  billingCycle: String!
+  createdAt: DateTime!
+  currency: String!
+  director: AdminSalesDirectorObject!
+  flowSubscriptionId: String
+  flowToken: String
+  id: ID!
+  paidAt: DateTime
+  planLimit: AdminSalesPlanObject
+  saleType: String!
+  status: String!
 }
 
 type AdminTrendPoint {
@@ -219,10 +283,10 @@ input CreateGlobalNoticeInput {
 input CreateLeagueInput {
   format: LeagueFormat!
   name: String!
-  newOrganizer: NewOrganizerInput
-  organizerId: String
+  newOrganizer: NewOrganizerInput!
   planner: CreateUserInput
   settings: TournamentSettingsInput
+  staff: CreateUserInput
 }
 
 input CreateMacroEntityInput {
@@ -282,6 +346,7 @@ input CreatePlayerInput {
   medicalInfo: String
   photoUrl: String
   position: PlayerPosition!
+  rut: String
   scholarship: Boolean = false
   schoolId: ID!
 }
@@ -413,6 +478,7 @@ input CreateUserInput {
   """Mínimo 6 caracteres"""
   password: String!
   phone: String
+  photoUrl: String
   role: UserRole! = GUARDIAN
   schoolId: ID
 }
@@ -426,6 +492,20 @@ type DirectorAssignmentResult {
   director: UserEntity!
   role: String!
   school: SchoolEntity!
+}
+
+"""Snapshot del plan real heredado desde el director"""
+type DirectorPlan {
+  amount: Int
+  flowSubscriptionStatus: String
+  id: String
+  interval: String
+  maxCategories: Int
+  maxCoaches: Int
+  maxGuardianPerPlayer: Int
+  maxPlayers: Int
+  maxSchools: Int
+  name: String!
 }
 
 enum EvaluationCategory {
@@ -537,6 +617,13 @@ enum LeagueFormat {
   LARGO
 }
 
+input LockMatchRosterInput {
+  allowInsufficientPlayers: Boolean
+  matchId: String!
+  verifiedAwayPlayerIds: [String!]!
+  verifiedHomePlayerIds: [String!]!
+}
+
 input LoginInput {
   email: String!
   password: String!
@@ -572,6 +659,20 @@ type MatchEntity {
   stats: [MatchStatEntity!]
 }
 
+enum MatchEventType {
+  GOAL
+  RED
+  YELLOW
+}
+
+enum MatchPeriod {
+  BREAK
+  FINAL
+  FIRST_HALF
+  PREVIA
+  SECOND_HALF
+}
+
 type MatchStatEntity {
   assists: Int!
   goals: Int!
@@ -584,8 +685,17 @@ type MatchStatEntity {
 
 enum MatchStatus {
   CANCELLED
+  FINISHED
+  IN_PROGRESS
   PLAYED
+  ROSTER_LOCKED
   SCHEDULED
+  SUBMITTED
+}
+
+enum MatchTeamSide {
+  AWAY
+  HOME
 }
 
 enum MeasurementUnit {
@@ -611,6 +721,7 @@ type MonthlyFeeEntity {
 }
 
 type Mutation {
+  addMatchEvent(input: AddMatchEventInput!): TournamentMatchEvent!
   addPlayer(input: CreateTournamentPlayerInput!): TournamentPlayer!
   adminApproveReferralReward(referralId: String!): ReferralObject!
   adminCreateMacroEntity(input: CreateMacroEntityInput!): MacroEntityObject!
@@ -666,6 +777,7 @@ type Mutation {
 
   """👑 GOD MODE: SuperAdmin inicia sesión como otro usuario"""
   impersonateUser(targetUserId: String!): AuthResponse!
+  lockMatchRoster(input: LockMatchRosterInput!): TournamentMatch!
 
   """Inicio de sesión unificado (Director, Coach, Admin)"""
   login(input: LoginInput!): AuthResponse!
@@ -680,11 +792,14 @@ type Mutation {
   removeCategory(id: String!): CategoryEntity!
   removeExercise(id: String!): Boolean!
   removeMatch(id: ID!): MatchEntity!
+  removeMatchEvent(eventId: String!): TournamentMatchEvent!
   removeProduct(productId: ID!): ProductEntity!
   removeStrategy(id: String!): Strategy!
   removeTacticalBoard(id: ID!): TacticalBoardEntity!
+  removeTournamentPlayer(playerId: String!): TournamentPlayer!
   removeTrainingSession(sessionId: ID!): Boolean!
   sendInvite(email: String!): Referral!
+  setMatchPeriod(matchId: String!, period: MatchPeriod!): TournamentMatch!
   subadminAssignDirectorToSchool(directorId: ID!, schoolId: ID!): DirectorAssignmentResult!
   subadminCreateDirector(input: CreateManagedDirectorInput!): UserEntity!
   subadminCreateGlobalNoticeCampaign(input: CreateSubadminGlobalNoticeInput!): [SubadminGlobalNoticeRecord!]!
@@ -693,12 +808,15 @@ type Mutation {
   subadminMoveTask(input: SubadminMoveTaskInput!): Task!
   subadminRegisterShipment(input: CreateShipmentInput!): Boolean!
   subadminRemoveDirectorFromSchool(directorId: ID!, schoolId: ID!): Boolean!
+  submitMatchSheet(input: SubmitMatchSheetInput!): TournamentMatch!
   switchSchoolMode(mode: SchoolMode!, schoolId: ID!): SchoolEntity!
   togglePlayerActive(playerId: String!): PlayerEntity!
   updateCategory(id: String!, input: UpdateCategoryInput!): CategoryEntity!
   updateExercise(id: String!, input: CreateExerciseInput!): ExerciseEntity!
   updateGlobalNotice(input: UpdateGlobalNoticeInput!): GlobalNotice!
+  updateLeagueSettings(input: UpdateTournamentSettingsInput!): TournamentSettings!
   updateMatch(input: UpdateMatchInput!): MatchEntity!
+  updateMatchSchedule(input: UpdateTournamentMatchInput!): TournamentMatch!
   updateNotice(id: ID!, input: UpdateNoticeInput!): NoticeEntity!
 
   """Actualiza el paso del wizard de onboarding"""
@@ -712,6 +830,7 @@ type Mutation {
   updateTestProtocol(id: String!, input: UpdateTestProtocolInput!): TestProtocolEntity!
   updateTrainingSession(input: UpdateTrainingSessionInput!, sessionId: ID!): TrainingSessionEntity!
   updateUser(input: UpdateUserInput!, userId: String!): UserEntity!
+  validateMatchResult(input: ValidateMatchResultInput!): TournamentMatch!
 }
 
 input NewOrganizerInput {
@@ -782,6 +901,12 @@ type PlanLimitObject {
   name: String!
 }
 
+type PlannerAgendaItem {
+  leagueId: String!
+  leagueName: String!
+  match: TournamentMatch!
+}
+
 type PlayerEntity {
   active: Boolean!
   attendance: [AttendanceEntity!]
@@ -802,6 +927,7 @@ type PlayerEntity {
   photoUrl: String
   position: String!
   qrCodeToken: String!
+  rut: String
   scholarship: Boolean!
   school: SchoolEntity
   schoolId: ID!
@@ -849,6 +975,8 @@ type Query {
   adminAuditLogs: [AdminAuditLogObject!]!
   adminBillingOverview: [BillingOverviewObject!]!
   adminBoards: [BoardObject!]!
+  adminCrmDirectors: [AdminCrmDirectorObject!]!
+  adminDashboardHistory(months: Int): [AdminDashboardHistoryPoint!]!
   adminDashboardStats: AdminDashboardStats!
   adminDirectors: [AdminDirectorObject!]!
   adminExercises: [ExerciseObject!]!
@@ -858,10 +986,12 @@ type Query {
   adminPlanLimits: [PlanLimitObject!]!
   adminReferrals: [ReferralObject!]!
   adminRevenueAnalytics: RevenueAnalytics!
+  adminSalesKpis: AdminSalesKpisObject!
   adminSchools: [AdminSchoolObject!]!
   adminSponsorships: [SponsorshipObject!]!
   adminStatisticsKpis(range: String): AdminStatisticsKpis!
   adminStrategies: [StrategyObject!]!
+  adminSubscriptionSales: [AdminSubscriptionSaleObject!]!
   adminSupportTickets: [SupportTicketObject!]!
   adminSystemSettings: [SystemSettingObject!]!
   adminUsers: [AdminUserObject!]!
@@ -905,6 +1035,7 @@ type Query {
   myStrategies: [Strategy!]!
   notice(id: ID!, schoolId: ID!): NoticeEntity!
   notices(schoolId: ID!): [NoticeEntity!]!
+  plannerAgenda(plannerId: String!): [PlannerAgendaItem!]!
   playerProfile(playerId: String!): PlayerEntity!
   players(teamId: String!): [TournamentPlayer!]!
   playersByCategory(categoryId: String!): [PlayerEntity!]!
@@ -934,6 +1065,7 @@ type Query {
   tacticalBoard(id: ID!): TacticalBoardEntity!
   tacticalBoardsByCategory(categoryId: ID!): [TacticalBoardEntity!]!
   teams(tournamentId: String!): [TournamentTeam!]!
+  tournamentMatch(matchId: String!): TournamentMatch
   trainingSession(sessionId: ID!): TrainingSessionEntity!
   trainingSessionsByCategory(categoryId: ID!): [TrainingSessionEntity!]!
   userById(userId: ID!): UserEntity!
@@ -1027,6 +1159,9 @@ type SchoolEntity {
   categories: [CategoryEntity!]
   createdAt: DateTime!
   currency: Int
+
+  """Plan real de la escuela heredado desde su director"""
+  directorPlan: DirectorPlan
   id: ID!
   latitude: Float
   logoUrl: String
@@ -1289,6 +1424,11 @@ type SubadminTopScorer {
   schoolName: String!
 }
 
+input SubmitMatchSheetInput {
+  matchId: String!
+  notes: String!
+}
+
 type SupportTicketObject {
   createdAt: DateTime!
   id: ID!
@@ -1371,6 +1511,7 @@ type Tournament {
   organizer: User!
   planner: User
   settings: TournamentSettings
+  staff: User
   standings: [TournamentStanding!]
   status: TournamentStatus!
   teams: [TournamentTeam!]
@@ -1379,12 +1520,34 @@ type Tournament {
 type TournamentMatch {
   awayScore: Int!
   awayTeam: TournamentTeam!
+  currentPeriod: MatchPeriod!
   date: DateTime!
+  events: [TournamentMatchEvent!]
   homeScore: Int!
   homeTeam: TournamentTeam!
   id: ID!
+  notes: String
+  rosterValidations: [TournamentMatchRoster!]
   round: Int!
+  stats: [TournamentPlayerStat!]
   status: MatchStatus!
+}
+
+type TournamentMatchEvent {
+  description: String
+  id: ID!
+  minute: Int!
+  player: TournamentPlayer
+  teamSide: MatchTeamSide!
+  type: MatchEventType!
+}
+
+type TournamentMatchRoster {
+  id: ID!
+  player: TournamentPlayer!
+  suspendedSnapshot: Boolean!
+  teamSide: MatchTeamSide!
+  verified: Boolean!
 }
 
 type TournamentPlayer {
@@ -1393,6 +1556,13 @@ type TournamentPlayer {
   lastName: String!
   number: Int
   position: PlayerPosition
+}
+
+type TournamentPlayerStat {
+  id: ID!
+  player: TournamentPlayer!
+  redCards: Int!
+  yellowCards: Int!
 }
 
 type TournamentSettings {
@@ -1507,6 +1677,7 @@ input UpdatePlayerInput {
   medicalInfo: String
   photoUrl: String
   position: PlayerPosition
+  rut: String
   scholarship: Boolean = false
   schoolId: ID
 }
@@ -1564,6 +1735,22 @@ input UpdateTestProtocolInput {
   unit: MeasurementUnit
 }
 
+input UpdateTournamentMatchInput {
+  awayTeamId: String
+  date: DateTime
+  homeTeamId: String
+  matchId: String!
+  round: Int
+  status: MatchStatus
+}
+
+input UpdateTournamentSettingsInput {
+  pointsDraw: Int
+  pointsLoss: Int
+  pointsWin: Int
+  tournamentId: String!
+}
+
 input UpdateTrainingSessionInput {
   categoryId: ID
   date: DateTime
@@ -1586,6 +1773,7 @@ input UpdateUserInput {
   """Mínimo 6 caracteres"""
   password: String
   phone: String
+  photoUrl: String
   role: UserRole = GUARDIAN
   schoolId: ID
 }
@@ -1605,6 +1793,7 @@ type UserEntity {
   isActive: Boolean!
   managedPlayers: [PlayerEntity!]
   phone: String
+  photoUrl: String
   role: UserRole!
   school: SchoolEntity
   schoolId: ID
@@ -1617,9 +1806,16 @@ enum UserRole {
   COACH
   DIRECTOR
   GUARDIAN
+  LEAGUE_OWNER
   PLANNER
   SUBADMIN
   SUPERADMIN
+}
+
+input ValidateMatchResultInput {
+  awayScore: Int!
+  homeScore: Int!
+  matchId: String!
 }
 
 enum ViaNotice {

@@ -32,6 +32,7 @@ enum Role {
   SUPERADMIN
   SUBADMIN
   DIRECTOR
+  LEAGUE_OWNER
   COACH
   GUARDIAN
   PLANNER
@@ -68,6 +69,18 @@ enum PaymentStatus {
   PAID
   OVERDUE
   WAIVED
+}
+
+enum SubscriptionSaleStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELLED
+}
+
+enum SubscriptionSaleType {
+  INITIAL
+  RENEWAL
 }
 
 // --- NUEVOS ENUMS ---
@@ -299,6 +312,8 @@ model TournamentPlayer {
   team   TournamentTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   stats TournamentPlayerStat[]
+  matchEvents TournamentMatchEvent[]
+  rosterValidations TournamentMatchRoster[]
 
   createdAt DateTime @default(now())
 }
@@ -321,13 +336,56 @@ model TournamentMatch {
   date DateTime
   round Int
 
+  currentPeriod MatchPeriod @default(PREVIA)
+  notes String?
+  startedAt DateTime?
+  finishedAt DateTime?
+  submittedAt DateTime?
+
 
 
   status MatchStatus
 
   stats TournamentPlayerStat[]
+  events TournamentMatchEvent[]
+  rosterValidations TournamentMatchRoster[]
 
   @@index([tournamentId])
+}
+
+model TournamentMatchEvent {
+  id String @id @default(uuid())
+
+  matchId String
+  match TournamentMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  playerId String?
+  player TournamentPlayer? @relation(fields: [playerId], references: [id], onDelete: SetNull)
+
+  teamSide MatchTeamSide
+  type MatchEventType
+  minute Int
+  description String?
+
+  createdAt DateTime @default(now())
+}
+
+model TournamentMatchRoster {
+  id String @id @default(uuid())
+
+  matchId String
+  match TournamentMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  playerId String
+  player TournamentPlayer @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  teamSide MatchTeamSide
+  verified Boolean @default(false)
+  suspendedSnapshot Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@unique([matchId, playerId])
 }
 
 model TournamentPlayerStat {
@@ -371,8 +429,31 @@ model TournamentStanding {
 
 enum MatchStatus {
   SCHEDULED
+  ROSTER_LOCKED
+  IN_PROGRESS
+  FINISHED
+  SUBMITTED
   PLAYED
   CANCELLED
+}
+
+enum MatchPeriod {
+  PREVIA
+  FIRST_HALF
+  BREAK
+  SECOND_HALF
+  FINAL
+}
+
+enum MatchTeamSide {
+  HOME
+  AWAY
+}
+
+enum MatchEventType {
+  GOAL
+  YELLOW
+  RED
 }
 
 model GlobalAsset {
@@ -399,8 +480,11 @@ model User {
   email     String   @unique
   password  String
   fullName  String
+  photoUrl  String?
   phone     String?
   role      Role     @default(GUARDIAN)
+  planLimitId String?
+  planLimit PlanLimit? @relation(fields: [planLimitId], references: [id])
   flowCustomerId String? @unique
   flowSubscriptionId String?
   flowPlanId String?
@@ -430,6 +514,7 @@ model User {
   // --- NUEVAS RELACIONES ---
   assignedTasks Task[]          @relation("UserTasks") // Tareas asignadas al usuario (Staff)
   adminAuditLog AdminAuditLog[]
+  subscriptionSales SubscriptionSale[]
   schoolGalleryPhotos SchoolGalleryPhoto[] @relation("SchoolGalleryPhotosCreatedBy")
   flowWebhookEvents FlowWebhookEvent[]
   supportTickets SupportTicket[]
@@ -474,8 +559,6 @@ model School {
   logoUrl            String?
   mode               SchoolMode @default(COMMERCIAL)
   bankDetails        String?    @db.Text
-  planLimitId        String?
-  planLimit          PlanLimit? @relation(fields: [planLimitId], references: [id])
   subscriptionStatus String?
   nextBillingDate    DateTime?
   macroEntityId      String?
@@ -518,7 +601,6 @@ model School {
   galleryPhotos SchoolGalleryPhoto[]
 
   @@index([macroEntityId])
-  @@index([planLimitId])
 }
 
 model SchoolGalleryPhoto {
@@ -622,6 +704,7 @@ model Player {
   id          String         @id @default(uuid())
   firstName   String
   lastName    String
+  rut         String?
   birthDate   DateTime
   photoUrl    String?
   medicalInfo String?        @db.Text
@@ -644,6 +727,8 @@ model Player {
 
   createdAt DateTime @default(now())
   updatedAt DateTime? @updatedAt
+
+  @@unique([schoolId, rut])
 }
 
 model Coach {
@@ -991,7 +1076,42 @@ model PlanLimit {
   maxSchools            Int
   maxPlayersPerSchool   Int
   maxCategories         Int
+  maxCoaches            Int      @default(2)
   maxGuardianPerPlayer  Int      @map("maxGuardianPerSchools")
 
-  schools School[]
+  directors User[]
+  subscriptionSales SubscriptionSale[]
+}
+
+model SubscriptionSale {
+  id String @id @default(uuid())
+
+  directorId String
+  director User @relation(fields: [directorId], references: [id])
+
+  planLimitId String?
+  planLimit PlanLimit? @relation(fields: [planLimitId], references: [id])
+
+  flowSubscriptionId String?
+  flowToken String? @unique
+  flowOrder String?
+
+  amount Int
+  currency String @default("CLP")
+  billingCycle String
+  periodKey String
+
+  saleType SubscriptionSaleType
+  status SubscriptionSaleStatus
+  paidAt DateTime?
+
+  payload Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([directorId, createdAt])
+  @@index([status, createdAt])
+  @@index([periodKey])
+  @@unique([flowSubscriptionId, saleType, periodKey])
 }

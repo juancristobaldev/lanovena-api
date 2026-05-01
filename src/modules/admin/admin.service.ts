@@ -12,7 +12,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { FlowApiException, FlowService } from '../flow/flow.service';
 import { UserEntity } from '@/entitys/user.entity';
 import { MonthlyFeeEntity } from '@/entitys/monthly-fee.entity';
-import { PaymentStatus, Role, TargetAudience } from '@prisma/client';
+import {
+  PaymentStatus,
+  Role,
+  SubscriptionSaleStatus,
+  SubscriptionSaleType,
+  TargetAudience,
+} from '@prisma/client';
 import {
   CreateGlobalAssetDto,
   CreatePlanLimitInput,
@@ -35,6 +41,10 @@ export class AdminService {
   // =====================================================
 
   async getDashboardStats() {
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+
     const [
       totalPlayers,
       totalSchools,
@@ -46,9 +56,12 @@ export class AdminService {
       this.prisma.school.count(),
       this.prisma.user.count(),
       this.prisma.school.count({ where: { isActive: true } }),
-      this.prisma.monthlyFee.aggregate({
+      this.prisma.subscriptionSale.aggregate({
         _sum: { amount: true },
-        where: { status: 'PAID' },
+        where: {
+          status: SubscriptionSaleStatus.PAID,
+          paidAt: { gte: monthStart },
+        },
       }),
     ]);
 
@@ -63,7 +76,7 @@ export class AdminService {
 
   async getDirectors() {
     const directors = await this.prisma.user.findMany({
-      where: { role: Role.DIRECTOR },
+      where: { role: { in: [Role.DIRECTOR, Role.LEAGUE_OWNER] } },
     });
 
     return directors;
@@ -144,6 +157,48 @@ export class AdminService {
     );
 
     return result;
+  }
+
+  async getCrmDirectors() {
+    const directors = await this.prisma.user.findMany({
+      where: {
+        role: Role.DIRECTOR,
+        isActive: true,
+      },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        flowSubscriptionStatus: true,
+        planLimit: {
+          select: {
+            name: true,
+            amount: true,
+          },
+        },
+        schools: {
+          where: { role: Role.DIRECTOR },
+          select: { schoolId: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return directors.map((director) => {
+      const schoolsCount = new Set(
+        director.schools.map((s) => s.schoolId).filter(Boolean),
+      ).size;
+
+      return {
+        id: director.id,
+        fullName: director.fullName,
+        email: director.email,
+        planName: director.planLimit?.name ?? null,
+        planAmount: director.planLimit?.amount ?? null,
+        schoolsCount,
+        flowSubscriptionStatus: director.flowSubscriptionStatus ?? null,
+      };
+    });
   }
 
   async deleteDirectorSafe(directorId: string) {
@@ -347,16 +402,158 @@ export class AdminService {
   }
 
   async getRevenueAnalytics() {
-    const fees = await this.prisma.monthlyFee.findMany({
-      where: { status: 'PAID' },
-    });
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
 
-    const revenue = fees.reduce((acc, f) => acc + f.amount, 0);
+    const [aggregate, totalPayments] = await Promise.all([
+      this.prisma.subscriptionSale.aggregate({
+        _sum: { amount: true },
+        where: {
+          status: SubscriptionSaleStatus.PAID,
+          paidAt: { gte: monthStart },
+        },
+      }),
+      this.prisma.subscriptionSale.count({
+        where: {
+          status: SubscriptionSaleStatus.PAID,
+          paidAt: { gte: monthStart },
+        },
+      }),
+    ]);
 
     return {
-      totalRevenue: revenue,
-      totalPayments: fees.length,
+      totalRevenue: aggregate._sum.amount ?? 0,
+      totalPayments,
     };
+  }
+
+  async getDashboardHistory(months = 5) {
+    const safeMonths = Math.min(Math.max(months, 2), 24);
+    const now = new Date();
+
+    const historyMonths = Array.from({ length: safeMonths }).map((_, index) => {
+      const date = new Date(now.getFullYear(), now.getMonth() - (safeMonths - 1 - index), 1);
+      return {
+        year: date.getFullYear(),
+        month: date.getMonth() + 1,
+        monthEnd: new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999),
+        label: date.toLocaleDateString('es-CL', { month: 'short' }),
+      };
+    });
+
+    const paidSalesByMonth = await this.prisma.subscriptionSale.groupBy({
+      by: ['periodKey'],
+      where: {
+        status: SubscriptionSaleStatus.PAID,
+      },
+      _sum: {
+        amount: true,
+      },
+    });
+
+    const paidMap = new Map(
+      paidSalesByMonth.map((row) => [
+        row.periodKey,
+        row._sum.amount ?? 0,
+      ]),
+    );
+
+    const activeSchoolsCounts = await Promise.all(
+      historyMonths.map((point) =>
+        this.prisma.school.count({
+          where: {
+            isActive: true,
+            createdAt: { lte: point.monthEnd },
+          },
+        }),
+      ),
+    );
+
+    return historyMonths.map((point, index) => {
+      const key = `${point.year}-${String(point.month).padStart(2, '0')}`;
+      return {
+        label: point.label,
+        revenue: paidMap.get(key) ?? 0,
+        activeSchools: activeSchoolsCounts[index] ?? 0,
+      };
+    });
+  }
+
+  async getSalesKpis() {
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+
+    const [mrrAgg, siiAgg, totalSales, renewals, initialSales, failedSales] =
+      await Promise.all([
+        this.prisma.subscriptionSale.aggregate({
+          _sum: { amount: true },
+          where: {
+            status: SubscriptionSaleStatus.PAID,
+            paidAt: { gte: monthStart },
+          },
+        }),
+        this.prisma.subscriptionSale.aggregate({
+          _sum: { amount: true },
+          where: {
+            status: SubscriptionSaleStatus.PAID,
+            paidAt: { gte: monthStart },
+          },
+        }),
+        this.prisma.subscriptionSale.count({
+          where: { createdAt: { gte: monthStart } },
+        }),
+        this.prisma.subscriptionSale.count({
+          where: {
+            saleType: SubscriptionSaleType.RENEWAL,
+            createdAt: { gte: monthStart },
+          },
+        }),
+        this.prisma.subscriptionSale.count({
+          where: {
+            saleType: SubscriptionSaleType.INITIAL,
+            createdAt: { gte: monthStart },
+          },
+        }),
+        this.prisma.subscriptionSale.count({
+          where: {
+            status: SubscriptionSaleStatus.FAILED,
+            createdAt: { gte: monthStart },
+          },
+        }),
+      ]);
+
+    return {
+      mrr: mrrAgg._sum.amount ?? 0,
+      siiBilled: siiAgg._sum.amount ?? 0,
+      totalSales,
+      renewals,
+      initialSales,
+      failedSales,
+    };
+  }
+
+  async getSubscriptionSales() {
+    return this.prisma.subscriptionSale.findMany({
+      include: {
+        director: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+          },
+        },
+        planLimit: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 300,
+    });
   }
 
   async getStatisticsKpis(range = '30days') {
@@ -535,33 +732,87 @@ export class AdminService {
   // =====================================================
 
   async getSchools() {
-    const countCoach = await this.prisma.user.count({
-      where: {
-        role: Role.COACH,
-      },
-    });
-
-    return this.prisma.school
-      .findMany({
-        include: {
-          _count: {
-            select: {
-              players: true,
-              users: true,
-            },
+    const schools = await this.prisma.school.findMany({
+      include: {
+        _count: {
+          select: {
+            players: true,
+            users: true,
           },
         },
-        orderBy: { createdAt: 'desc' },
-      })
-      .then((data) =>
-        data.map((school) => ({
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const enriched = await Promise.all(
+      schools.map(async (school) => {
+        const [coachesCount, directorStaff] = await Promise.all([
+          this.prisma.user.count({
+            where: {
+              schoolId: school.id,
+              role: Role.COACH,
+              isActive: true,
+            },
+          }),
+          this.prisma.schoolStaff.findFirst({
+            where: {
+              schoolId: school.id,
+              role: Role.DIRECTOR,
+            },
+            select: {
+              userId: true,
+              user: {
+                select: {
+                  flowSubscriptionStatus: true,
+                  planLimit: {
+                    select: {
+                      name: true,
+                    },
+                  },
+                },
+              },
+            },
+            orderBy: { createdAt: 'asc' },
+          }),
+        ]);
+
+        return {
           ...school,
+          directorId: directorStaff?.userId ?? null,
+          directorPlanName: directorStaff?.user?.planLimit?.name ?? null,
+          directorSubscriptionStatus:
+            directorStaff?.user?.flowSubscriptionStatus ?? null,
+          financialStatus: this.resolveSchoolFinancialStatus(
+            directorStaff?.user?.flowSubscriptionStatus,
+            school.subscriptionStatus,
+          ),
           _count: {
             ...school._count,
-            coaches: countCoach,
+            coaches: coachesCount,
           },
-        })),
-      );
+        };
+      }),
+    );
+
+    return enriched;
+  }
+
+  private resolveSchoolFinancialStatus(
+    directorSubscriptionStatus?: string | null,
+    schoolSubscriptionStatus?: string | null,
+  ): 'AL_DIA' | 'PENDIENTE' | 'MOROSO' | 'SIN_SUSCRIPCION' {
+    const status =
+      directorSubscriptionStatus?.toUpperCase() ??
+      schoolSubscriptionStatus?.toUpperCase() ??
+      null;
+
+    if (status === 'ACTIVE' || status === 'PAID') return 'AL_DIA';
+    if (status === 'PENDING' || status === 'TRIALING') return 'PENDIENTE';
+    if (status === 'CANCELLED' || status === 'OVERDUE' || status === 'UNPAID') {
+      return 'MOROSO';
+    }
+
+    return 'SIN_SUSCRIPCION';
   }
 
   async deactivateSchool(schoolId: string) {

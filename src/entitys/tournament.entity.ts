@@ -11,6 +11,9 @@ import {
 } from '@nestjs/graphql';
 import {
   MatchStatus,
+  MatchPeriod,
+  MatchEventType,
+  MatchTeamSide,
   TournamentStatus,
   LeagueFormat,
   PlayerPosition,
@@ -19,6 +22,9 @@ import { CreateUserInput } from './user.entity';
 
 registerEnumType(TournamentStatus, { name: 'TournamentStatus' });
 registerEnumType(MatchStatus, { name: 'MatchStatus' });
+registerEnumType(MatchPeriod, { name: 'MatchPeriod' });
+registerEnumType(MatchEventType, { name: 'MatchEventType' });
+registerEnumType(MatchTeamSide, { name: 'MatchTeamSide' });
 registerEnumType(LeagueFormat, { name: 'LeagueFormat' });
 
 // ===============================
@@ -86,6 +92,60 @@ export class TournamentPlayer {
 }
 
 @ObjectType()
+export class TournamentPlayerStat {
+  @Field(() => ID)
+  id: string;
+
+  @Field(() => Int)
+  yellowCards: number;
+
+  @Field(() => Int)
+  redCards: number;
+
+  @Field(() => TournamentPlayer)
+  player: TournamentPlayer;
+}
+
+@ObjectType()
+export class TournamentMatchEvent {
+  @Field(() => ID)
+  id: string;
+
+  @Field(() => MatchEventType)
+  type: MatchEventType;
+
+  @Field(() => MatchTeamSide)
+  teamSide: MatchTeamSide;
+
+  @Field(() => Int)
+  minute: number;
+
+  @Field({ nullable: true })
+  description?: string;
+
+  @Field(() => TournamentPlayer, { nullable: true })
+  player?: TournamentPlayer;
+}
+
+@ObjectType()
+export class TournamentMatchRoster {
+  @Field(() => ID)
+  id: string;
+
+  @Field(() => MatchTeamSide)
+  teamSide: MatchTeamSide;
+
+  @Field()
+  verified: boolean;
+
+  @Field()
+  suspendedSnapshot: boolean;
+
+  @Field(() => TournamentPlayer)
+  player: TournamentPlayer;
+}
+
+@ObjectType()
 export class TournamentTeam {
   @Field(() => ID)
   id: string;
@@ -126,6 +186,33 @@ export class TournamentMatch {
 
   @Field(() => Int)
   round: number;
+
+  @Field(() => MatchPeriod)
+  currentPeriod: MatchPeriod;
+
+  @Field({ nullable: true })
+  notes?: string;
+
+  @Field(() => [TournamentPlayerStat], { nullable: true })
+  stats?: TournamentPlayerStat[];
+
+  @Field(() => [TournamentMatchEvent], { nullable: true })
+  events?: TournamentMatchEvent[];
+
+  @Field(() => [TournamentMatchRoster], { nullable: true })
+  rosterValidations?: TournamentMatchRoster[];
+}
+
+@ObjectType()
+export class PlannerAgendaItem {
+  @Field()
+  leagueId: string;
+
+  @Field()
+  leagueName: string;
+
+  @Field(() => TournamentMatch)
+  match: TournamentMatch;
 }
 
 // ===============================
@@ -181,6 +268,9 @@ export class Tournament {
 
   @Field(() => User, { nullable: true })
   planner?: User; // 🔥 AÑADIDO: El planillero ahora pertenece al Torneo (puede ser null al inicio)
+
+  @Field(() => User, { nullable: true })
+  staff?: User;
 
   @Field(() => TournamentSettings, { nullable: true })
   settings?: TournamentSettings;
@@ -250,17 +340,17 @@ export class CreateLeagueInput {
   @Field(() => LeagueFormat)
   format: LeagueFormat;
 
-  @Field({ nullable: true })
-  organizerId?: string;
-
-  @Field(() => NewOrganizerInput, { nullable: true })
-  newOrganizer?: NewOrganizerInput;
+  @Field(() => NewOrganizerInput)
+  newOrganizer: NewOrganizerInput;
 
   @Field(() => TournamentSettingsInput, { nullable: true })
   settings?: TournamentSettingsInput;
 
   @Field(() => CreateUserInput, { nullable: true })
   planner?: CreateUserInput;
+
+  @Field(() => CreateUserInput, { nullable: true })
+  staff?: CreateUserInput;
 }
 
 // ===============================
@@ -314,4 +404,97 @@ export class CreateTournamentMatchInput {
 
   @Field(() => Int)
   round: number;
+}
+
+@InputType()
+export class UpdateTournamentMatchInput {
+  @Field()
+  matchId: string;
+
+  @Field({ nullable: true })
+  date?: Date;
+
+  @Field(() => Int, { nullable: true })
+  round?: number;
+
+  @Field({ nullable: true })
+  homeTeamId?: string;
+
+  @Field({ nullable: true })
+  awayTeamId?: string;
+
+  @Field(() => MatchStatus, { nullable: true })
+  status?: MatchStatus;
+}
+
+@InputType()
+export class ValidateMatchResultInput {
+  @Field()
+  matchId: string;
+
+  @Field(() => Int)
+  homeScore: number;
+
+  @Field(() => Int)
+  awayScore: number;
+}
+
+@InputType()
+export class UpdateTournamentSettingsInput {
+  @Field()
+  tournamentId: string;
+
+  @Field(() => Int, { nullable: true })
+  pointsWin?: number;
+
+  @Field(() => Int, { nullable: true })
+  pointsDraw?: number;
+
+  @Field(() => Int, { nullable: true })
+  pointsLoss?: number;
+}
+
+@InputType()
+export class LockMatchRosterInput {
+  @Field()
+  matchId: string;
+
+  @Field(() => [String])
+  verifiedHomePlayerIds: string[];
+
+  @Field(() => [String])
+  verifiedAwayPlayerIds: string[];
+
+  @Field({ nullable: true })
+  allowInsufficientPlayers?: boolean;
+}
+
+@InputType()
+export class AddMatchEventInput {
+  @Field()
+  matchId: string;
+
+  @Field(() => MatchTeamSide)
+  teamSide: MatchTeamSide;
+
+  @Field(() => MatchEventType)
+  type: MatchEventType;
+
+  @Field(() => Int)
+  minute: number;
+
+  @Field({ nullable: true })
+  playerId?: string;
+
+  @Field({ nullable: true })
+  description?: string;
+}
+
+@InputType()
+export class SubmitMatchSheetInput {
+  @Field()
+  matchId: string;
+
+  @Field()
+  notes: string;
 }
